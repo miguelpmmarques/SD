@@ -2,6 +2,7 @@ import java.rmi.*;
 import java.rmi.registry.*;
 import java.rmi.server.*;
 import java.util.ArrayList;
+import java.util.Iterator;
 
 
 public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrary {
@@ -17,10 +18,17 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
     }
     public boolean userRegistration(User newUser) throws RemoteException{
         System.out.println("[USER REGISTERED] - "+newUser.name);
+        synchronized(listLogedUsers)
+        {
+            listLogedUsers.add(newUser);
+        }
         return false;   //Um ifzinho para verificar se e admin
     }
     public boolean userLogin(User newUser) throws RemoteException{
-        listLogedUsers.add(newUser);
+        synchronized(listLogedUsers)
+        {
+            listLogedUsers.add(newUser);
+        }
         newUser.client.notification("LOGGED IN");
         System.out.println("[USER LOG IN] - "+newUser.username);
         return true; //Um ifzinho para verificar se e admin
@@ -32,12 +40,22 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
         }
         return "BAL BLA BLA";
     }
+    public ArrayList<User> listActiveUsers() throws RemoteException{
+        synchronized(listLogedUsers)
+        {
+            return listLogedUsers;
+        }
+    }
+    public String sendSystemInfo() throws RemoteException{
+        synchronized(listLogedUsers)
+        {
+            return "Top 10 pages Visited:\nBla Bla Bla\nTop 10 users Visited:\nBla Bla Bla\nMultiCast Servers List:\n127.0.0.1 : 3664\n...\nNumber Active Users -> "+listLogedUsers.size();
+        }
+    }
     //CHECK MAIN SERVER FUNCIONALITY
     public int  checkMe() throws RemoteException{
         return 0;
     }
-
-
     // MAIN
     public static void main(String[] args) throws RemoteException, NotBoundException {
         connection();
@@ -55,7 +73,7 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
     }
 
     public static void failover() throws RemoteException, NotBoundException {
-        ServerLibrary checkMainServer = (ServerLibrary) LocateRegistry.getRegistry(1401).lookup("ucBusca");
+        ServerLibrary checkMainServer;
         int faultCounter = 0;
         while (true){
             try {
@@ -64,6 +82,7 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
                 System.out.println("Interrupted");
             }
             try{
+                checkMainServer = (ServerLibrary) LocateRegistry.getRegistry(1401).lookup("ucBusca");
                 checkMainServer.checkMe();
                 System.out.println("[WORKIN]");
                 faultCounter = 0;
