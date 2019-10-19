@@ -1,15 +1,15 @@
 import java.rmi.*;
 import java.rmi.registry.*;
 import java.rmi.server.*;
-import java.util.ArrayList;
-import java.util.Iterator;
+import java.util.*;
 
 
 public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrary {
-
+    static Queue<String> queueURL = new LinkedList<>();
     ArrayList<User> listLogedUsers = new ArrayList<>();
     public SearchRMIServer() throws RemoteException {
         super();
+        System.out.println(queueURL);
     }
     public String connected(ClientLibrary newUser) throws RemoteException {
         //System.out.println(newUser);
@@ -27,7 +27,9 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
     public boolean userLogin(User newUser) throws RemoteException{
         synchronized(listLogedUsers)
         {
+            queueURL.add(newUser.username);
             listLogedUsers.add(newUser);
+            System.out.println(queueURL);
         }
         newUser.client.notification("LOGGED IN");
         System.out.println("[USER LOG IN] - "+newUser.username);
@@ -53,8 +55,8 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
         }
     }
     //CHECK MAIN SERVER FUNCIONALITY
-    public int  checkMe() throws RemoteException{
-        return 0;
+    public Queue<String>  checkMe() throws RemoteException{
+        return queueURL;
     }
     // MAIN
     public static void main(String[] args) throws RemoteException, NotBoundException {
@@ -77,13 +79,13 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
         int faultCounter = 0;
         while (true){
             try {
-                Thread.sleep(5000);
+                Thread.sleep(2000);
             } catch(InterruptedException e) {
                 System.out.println("Interrupted");
             }
             try{
                 checkMainServer = (ServerLibrary) LocateRegistry.getRegistry(1401).lookup("ucBusca");
-                checkMainServer.checkMe();
+                queueURL = checkMainServer.checkMe();
                 System.out.println("[WORKIN]");
                 faultCounter = 0;
             }catch (Exception e) {

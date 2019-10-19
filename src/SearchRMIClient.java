@@ -1,3 +1,4 @@
+import java.awt.desktop.SystemSleepEvent;
 import java.io.*;
 import java.rmi.*;
 import java.rmi.registry.*;
@@ -8,6 +9,8 @@ import java.util.Scanner;
 
 public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrary{
     //------ Remote Methods ---------
+    static private final int REPLYCOUNTER = 0;
+    static private final int REPLYCOUNTERTIMEOUT = 16;
     static private final int rmiLOGIN = 1;
     static private final int rmiREGISTRATION = 2;
     static private final int rmiSEARCH = 3;
@@ -18,7 +21,7 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
     static private final int rmiGETACTIVEUSERS = 8;
     static private final String ADMIMENU ="    --ADMIN MENU--\n\n[ADMIN] MANAGE PLAYERS PRIVILEGES - 1\n[ADMIN] CHECK SYSTEM INFO - 2\n[ADMIN] VIEW ACTIVE USERS - 3\nUcBusca -4\nHistory - 5\nRelated Pages - 6\nExit - 7\n>>> ";
     static private final String MAINMENU ="    --MAIN MENU--\n\nUcBusca - 1\nHistory -2\nRelated Pages -3\nExit -4\n>>> ";
-    static private final String VIEWPLAYERSMENU ="    --MANAGE PLAYERS --\n\nLIST ALL PLAYERS - 1\nSEARCH PLAYERS BY NAME -2\nLIST ACTIVE PLAYERS -3\nBACK -4\n>>> ";
+    static private final String VIEWPLAYERSMENU =" \n\nLIST ALL USERS - 1\nSEARCH USERS BY NAME -2\nLIST ACTIVE USERS -3\nBACK -4\n>>> ";
 
     private ServerLibrary ucBusca;
     private Scanner keyboard;
@@ -33,9 +36,8 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
     public void notification(String sms) throws RemoteException{
         System.out.println(sms);
     }
-
     // PRIVATE METHODS ------------------------------------------------------------------------------------------
-    private void retry(int rmiMethod,Object parameter) throws RemoteException, InterruptedException, NotBoundException {
+    private void retry(int rmiMethod,Object parameter,int replyCounter) throws RemoteException, InterruptedException, NotBoundException {
 
         try {
             this.ucBusca=(ServerLibrary) LocateRegistry.getRegistry(1401).lookup("ucBusca" );
@@ -79,12 +81,16 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
             }
         }catch (Exception e) {
             try {
-                Thread.sleep(1000);
+                Thread.sleep(2000);
             } catch(InterruptedException e2) {
                 System.out.println("Interrupted");
             }
-            System.out.println("Retransmiting...");
-            retry(rmiMethod,parameter);
+            if (replyCounter>REPLYCOUNTERTIMEOUT){
+                System.out.println("Please, try no reconnect to the UcBusca");
+                System.exit(0);
+            }
+            System.out.println("Retransmiting... "+replyCounter);
+            retry(rmiMethod,parameter,++replyCounter);
         }
     }
     private void pressToContinue() throws IOException {
@@ -110,7 +116,7 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
         String username = this.readInputMessages("Username");
         String password1 = this.readInputMessages("Passwork");
         User clientRequest = new User(username,password1,this);
-        retry(rmiLOGIN,clientRequest);
+        retry(rmiLOGIN,clientRequest,REPLYCOUNTER);
     }
     private void doRegistration() throws RemoteException, InterruptedException, NotBoundException {
         String name = this.readInputMessages("Name");
@@ -123,16 +129,109 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
             password2 = this.readInputMessages("Confirm passwork");
         }
         User clientRequest = new User(name,username,password1,this);
-        retry(rmiREGISTRATION,clientRequest);
+        retry(rmiREGISTRATION,clientRequest,REPLYCOUNTER);
 
     }
     private void doSearch() throws RemoteException, InterruptedException, NotBoundException {
         String searchWords = this.readInputMessages("Search");
         String[] searchWordsSplited = searchWords.split("\\s+");
-        retry(rmiSEARCH,searchWordsSplited);
+        retry(rmiSEARCH,searchWordsSplited,REPLYCOUNTER);
 
     }
-    // INTERFACES ------------------------------------------------------------------------------------------
+    private int getIntProtected() {
+        int intKeyboardInput = -1;
+        keyboard = new Scanner(System.in);
+        try {
+            intKeyboardInput = keyboard.nextInt();
+        }catch (Exception e){
+            System.out.print("PLEASE SELECT ONE OF THE FOLLOWING OPTIONS\n>>> ");
+            return intKeyboardInput;
+        }
+        return intKeyboardInput;
+    }
+    // MENUS ----------------------------------------------------------------------------------------------------
+    private void manageUsersMenu() throws RemoteException, InterruptedException, NotBoundException {
+        while (true){
+            System.out.print(VIEWPLAYERSMENU);
+            intKeyboardInput=getIntProtected();
+            switch (intKeyboardInput){
+                case 1:
+                    System.out.println("List Users :)");
+                    break;
+                case 2:
+                    System.out.println("Search Users by Name Players :)");
+                    break;
+                case 3:
+                    System.out.println("List Active Users :)");
+                    break;
+                case 4:
+                    return;
+                default:
+                    break;
+            }
+        }
+    }
+    private void adminMenu() throws RemoteException, InterruptedException, NotBoundException {
+        while (true){
+            System.out.print(ADMIMENU);
+            intKeyboardInput=getIntProtected();
+            switch (intKeyboardInput){
+                case 1:
+                    System.out.println("\n --- Manage Players Privileges--");
+                    this.manageUsersMenu();
+                    break;
+                case 2:
+                    System.out.println("\n --- Check System Info ---");
+                    retry(rmiGETSYSTEMINFO,null,REPLYCOUNTER);
+                    break;
+                case 3:
+                    System.out.println("\n --- View Active Users ---");
+                    retry(rmiGETACTIVEUSERS,null,REPLYCOUNTER);
+                    break;
+                case 4:
+                    System.out.println("\n --- UcBusca ---");
+                    this.doSearch();
+                    break;
+                case 5:
+                    System.out.println("\n --- History ---");
+                    // TO DO
+                    break;
+                case 6:
+                    System.out.println("\n --- Related Pages ---");
+                    // TO DO
+                    break;
+                case 7:
+                    System.out.println("\n --- Thank you come again ---");
+                    System.exit(0);
+                default:
+                    System.out.println("Choose one of the options");
+            }
+        }
+    }
+    private void mainMenu() throws RemoteException, InterruptedException, NotBoundException {
+        while (true){
+            System.out.print(MAINMENU);
+            intKeyboardInput = getIntProtected();
+            switch (intKeyboardInput){
+                case 1:
+                    System.out.println(" --- UcBusca ---");
+                    this.doSearch();
+                    break;
+                case 2:
+                    System.out.println(" --- History ---");
+                    break;
+                case 3:
+                    System.out.println(" --- Related Pages ---");
+                    break;
+                case 4:
+                    System.out.println(" --- Thank you come again ---");
+                    System.exit(0);
+                    return;
+                default:
+                    System.out.println("Choose one of the options");
+            }
+        }
+    }
     private void welcomePage(String sms) throws RemoteException, InterruptedException, NotBoundException {
         while (true){
             System.out.print(sms);
@@ -151,70 +250,6 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
                 System.exit(0);
             }
         }
-
-    }
-    private int getIntProtected() {
-        int intKeyboardInput = -1;
-        keyboard = new Scanner(System.in);
-        try {
-            intKeyboardInput = keyboard.nextInt();
-        }catch (Exception e){
-            System.out.print("PLEASE SELECT ONE OF THE FOLLOWING OPTIONS\n>>> ");
-            return intKeyboardInput;
-        }
-        return intKeyboardInput;
-    }
-    // MENUS ----------------------------------------------------------------------------------------------------
-    private void adminMenu() throws RemoteException, InterruptedException, NotBoundException {
-        while (true){
-            System.out.print(ADMIMENU);
-            intKeyboardInput=getIntProtected();
-            if (intKeyboardInput == 1){
-                System.out.println("\n --- Manage Players Privileges--");
-                // TO DO
-            } else if (intKeyboardInput == 2){
-                System.out.println("\n --- Check System Info ---");
-                retry(rmiGETSYSTEMINFO,null);
-            } else if (intKeyboardInput == 3){
-                System.out.println("\n --- View Active Users ---");
-                retry(rmiGETACTIVEUSERS,null);
-            }else if (intKeyboardInput == 4){
-                System.out.println("\n --- UcBusca ---");
-                this.doSearch();
-            } else if (intKeyboardInput == 5){
-                System.out.println("\n --- History ---");
-                // TO DO
-            } else if (intKeyboardInput == 6){
-                System.out.println("\n --- Related Pages ---");
-                // TO DO
-            } else if (intKeyboardInput == 7){
-                System.out.println("\n --- Thank you come again ---");
-                System.exit(0);
-            }
-        }
-    }
-    private void mainMenu() throws RemoteException, InterruptedException, NotBoundException {
-        while (true){
-            System.out.print(MAINMENU);
-            intKeyboardInput = getIntProtected();
-            if (intKeyboardInput == 1){
-                System.out.println(" --- UcBusca ---");
-                this.doSearch();
-                break;
-            } else if (intKeyboardInput == 2){
-                System.out.println(" --- History ---");
-                break;
-            } else if (intKeyboardInput == 3){
-                System.out.println(" --- Related Pages ---");
-                break;
-            } else if (intKeyboardInput == 4){
-                System.out.println(" --- Thank you come again ---");
-                System.exit(0);
-                return;
-            }
-        }
-        System.out.println("MAIN MENU...");
-
     }
     // MAIN ----------------------------------------------------------------------------------------------------
     public static void main(String[] args) {

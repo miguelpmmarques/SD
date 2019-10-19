@@ -33,7 +33,7 @@
     <property name="SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
     <property name="WebServerToolWindowFactoryState" value="false" />
     <property name="aspect.path.notification.shown" value="true" />
-    <property name="last_opened_file_path" value="$PROJECT_DIR$" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/../SD/jsoupExample" />
     <property name="node.js.detected.package.eslint" value="true" />
     <property name="node.js.detected.package.tslint" value="true" />
     <property name="node.js.path.for.package.eslint" value="project" />
@@ -93,7 +93,7 @@
       <option name="presentableId" value="Default" />
       <updated>1571317076132</updated>
       <workItem from="1571317078209" duration="38626000" />
-      <workItem from="1571401175084" duration="18580000" />
+      <workItem from="1571401175084" duration="25193000" />
     </task>
     <task id="LOCAL-00001" summary="Teste">
       <created>1571415704277</created>
