@@ -59,9 +59,10 @@ class MulticastUser extends Thread {
         System.out.println(this.getName() + " ready...");
         try {
             socket = new MulticastSocket();  // create socket without binding it (only for sending)
-            System.out.println("Please type your url:");
+
             Scanner keyboardScanner = new Scanner(System.in);
             while (true) {
+                System.out.println("Please type your url:");
                 String readKeyboard = keyboardScanner.nextLine();
                 byte[] buffer = readKeyboard.getBytes();
                 InetAddress group = InetAddress.getByName(MULTICAST_ADDRESS);
