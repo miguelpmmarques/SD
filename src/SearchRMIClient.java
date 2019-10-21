@@ -1,48 +1,97 @@
-import java.awt.desktop.SystemSleepEvent;
 import java.io.*;
 import java.rmi.*;
 import java.rmi.registry.*;
 import java.rmi.server.*;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.Scanner;
+import java.util.*;
 
 public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrary{
     //------ Remote Methods ---------
     static private final int REPLYCOUNTER = 0;
     static private final int REPLYCOUNTERTIMEOUT = 16;
+
     static private final int rmiLOGIN = 1;
     static private final int rmiREGISTRATION = 2;
     static private final int rmiSEARCH = 3;
     static private final int rmiHISTORY = 4;
     static private final int rmiRELATEDPAGES = 5;
-    static private final int rmiMANAGEUSERS = 6;
-    static private final int rmiGETSYSTEMINFO = 7;
-    static private final int rmiGETACTIVEUSERS = 8;
-    static private final String ADMIMENU ="    --ADMIN MENU--\n\n[ADMIN] MANAGE PLAYERS PRIVILEGES - 1\n[ADMIN] CHECK SYSTEM INFO - 2\n[ADMIN] VIEW ACTIVE USERS - 3\nUcBusca -4\nHistory - 5\nRelated Pages - 6\nExit - 7\n>>> ";
-    static private final String MAINMENU ="    --MAIN MENU--\n\nUcBusca - 1\nHistory -2\nRelated Pages -3\nExit -4\n>>> ";
-    static private final String VIEWPLAYERSMENU =" \n\nLIST ALL USERS - 1\nSEARCH USERS BY NAME -2\nLIST ACTIVE USERS -3\nBACK -4\n>>> ";
+    static private final int rmiCHANGEUSERPRIVILEGES = 6;
+    static private final int rmiUSERSLIST = 7;
+    static private final int rmiGETSYSTEMINFO = 8;
+    static private final int rmiADDURL = 9;
+    static private final String ADMIMENU ="    --ADMIN MENU--\n\n[ADMIN] MANAGE PLAYERS PRIVILEGES - 1\n[ADMIN] CHECK SYSTEM INFO - 2\n[ADMIN] ADD URL TO UCBUSCA - 3\nUcBusca - 4\nHistory - 5\nRelated Pages - 6\nExit - 7\n>>> ";
+    static private final String MAINMENU ="    --MAIN MENU--\n\nUcBusca - 1\nHistory - 2\nRelated Pages - 3\nExit - 4\n>>> ";
+    static private final String VIEWPLAYERSMENU ="\n --- MANAGE PLAYERS MENU ---\n\nLIST ALL USERS - 1\nCHANGE USER PRIVILEGES - 2\nBACK - 3\n>>> ";
 
     private ServerLibrary ucBusca;
     private Scanner keyboard;
     private int intKeyboardInput;
     private BufferedReader keyboardStrings = new BufferedReader(new InputStreamReader(System.in));
+    private User thisUser;
 
     private SearchRMIClient(ServerLibrary ucBusca) throws RemoteException {
         super();
         this.ucBusca = ucBusca;
     }
-    // RMI METHODS ----------------------------------------------------------------------------------------------
+    // CLIENT RMI METHODS ----------------------------------------------------------------------------------------------
     public void notification(String sms) throws RemoteException{
         System.out.println(sms);
     }
     // PRIVATE METHODS ------------------------------------------------------------------------------------------
-    private void retry(int rmiMethod,Object parameter,int replyCounter) throws RemoteException, InterruptedException, NotBoundException {
+    private void pressToContinue() throws IOException {
+        System.out.println("\n\nPress any key to come back");
+        System.in.read();
+    }
 
+    private String writeURL() throws IOException {
+        String out = "";
+        boolean flag;
+        do{
+            System.out.print("Insert URL to add to database\n>>> ");
+            flag = false;
+            try {
+                out = keyboardStrings.readLine();
+            }catch (IOException e){
+                flag = true;
+            }
+        }while (flag || out.length()==0 || !out.contains("."));
+        return out;
+    }
+    // Method to do avoid writing strings in numbers input
+    private int getIntProtected() {
+        int intKeyboardInput = -1;
+        keyboard = new Scanner(System.in);
+        try {
+            intKeyboardInput = keyboard.nextInt();
+        }catch (Exception e){
+            System.out.print("PLEASE SELECT ONE OF THE FOLLOWING OPTIONS\n>>> ");
+            return intKeyboardInput;
+        }
+        return intKeyboardInput;
+    }
+    // Protection to name, username and passwords not be only whitespaces
+    private String readInputMessages(String message){
+        System.out.print(message+"\n>>> ");
+        String input="";
+        do {
+            try {
+                input = keyboardStrings.readLine();
+                if (input.trim().length() == 0){
+                    System.out.print("Type something please\n>>> ");
+                }
+            } catch (IOException e) {
+                System.out.print("Error reading please try again\n>>> ");
+            }
+        }while (input.trim().length() == 0);
+        return input;
+    }
+    // SERVER RMI METHODS ------------------------------------------------------------------------------------------
+    private void retry(int rmiMethod,Object parameter,int replyCounter) throws RemoteException, InterruptedException, NotBoundException {
         try {
             this.ucBusca=(ServerLibrary) LocateRegistry.getRegistry(1401).lookup("ucBusca" );
+      System.out.println((User)parameter);
             switch (rmiMethod){
                 case rmiLOGIN:
+                    System.out.println(this.ucBusca);
                     if(this.ucBusca.userLogin((User)parameter)){
                         this.adminMenu();
                     } else{
@@ -61,25 +110,33 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
                     System.out.println(" --- Resultados de pesquisa ---\n\n"+searchOutput);
                     pressToContinue();
                     break;
-                case rmiGETACTIVEUSERS:
-                    ArrayList<User> listUsers = this.ucBusca.listActiveUsers();
-                    Iterator it = listUsers.iterator();
-                    while (it.hasNext()) {
-                        User move = (User)it.next();
-                        // Um if para verificar e indicar se e Admin ou nao
-                        System.out.println("[Name] "+move.name+"   [Username] "+move.username);
-                        it.remove(); // avoids a ConcurrentModificationException
-                    }
-                    pressToContinue();
+                case rmiADDURL:
+                    this.ucBusca.addURLbyADMIN((String) parameter);
                     break;
                 case rmiGETSYSTEMINFO:
                     System.out.print(this.ucBusca.sendSystemInfo());
                     pressToContinue();
                     break;
+                case rmiUSERSLIST:
+                    System.out.print(this.ucBusca.getAllUsers());
+                    pressToContinue();
+                    break;
+                case rmiRELATEDPAGES:
+                    System.out.println(this.ucBusca.getReferencePages((String) parameter));
+                    pressToContinue();
+                    break;
+                case rmiHISTORY:
+                    System.out.println(this.ucBusca.getHistory((User)parameter));
+                    pressToContinue();
+                    break;
+                case rmiCHANGEUSERPRIVILEGES:
+                    System.out.println(this.ucBusca.changeUserPrivileges((String) parameter));
+                    break;
                 default:
                     break;
             }
         }catch (Exception e) {
+      System.out.println(e);
             try {
                 Thread.sleep(2000);
             } catch(InterruptedException e2) {
@@ -93,33 +150,13 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
             retry(rmiMethod,parameter,++replyCounter);
         }
     }
-    private void pressToContinue() throws IOException {
-        System.out.println("\n\nPress any key to come back");
-        System.in.read();
-    }
-    private String readInputMessages(String message){
-        System.out.print(message+"\n>>> ");
-        String input = "";
-        while (input.equals("")) {
-            try {
-                input = keyboardStrings.readLine();
-                if (input.equals("")){
-                    System.out.print("Type something please\n>>> ");
-                }
-            } catch (IOException e) {
-                System.out.print("Error reading please try again\n>>> ");
-            }
-        }
-        return input;
-    }
     private void doLogin() throws RemoteException, InterruptedException, NotBoundException {
         String username = this.readInputMessages("Username");
         String password1 = this.readInputMessages("Passwork");
-        User clientRequest = new User(username,password1,this);
-        retry(rmiLOGIN,clientRequest,REPLYCOUNTER);
+        this.thisUser = new User(username,password1,this);
+        retry(rmiLOGIN,this.thisUser,REPLYCOUNTER);
     }
     private void doRegistration() throws RemoteException, InterruptedException, NotBoundException {
-        String name = this.readInputMessages("Name");
         String username = this.readInputMessages("Username");
         String password1 = this.readInputMessages("Passwork");
         String password2 = this.readInputMessages("Confirm passwork");
@@ -128,56 +165,45 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
             password1 = this.readInputMessages("Passwork");
             password2 = this.readInputMessages("Confirm passwork");
         }
-        User clientRequest = new User(name,username,password1,this);
-        retry(rmiREGISTRATION,clientRequest,REPLYCOUNTER);
+        this.thisUser = new User(username,password1,this);
+        retry(rmiREGISTRATION,this.thisUser,REPLYCOUNTER);
 
     }
+    // Method where the user inserts the words he wants to research
     private void doSearch() throws RemoteException, InterruptedException, NotBoundException {
         String searchWords = this.readInputMessages("Search");
         String[] searchWordsSplited = searchWords.split("\\s+");
         retry(rmiSEARCH,searchWordsSplited,REPLYCOUNTER);
 
     }
-    private int getIntProtected() {
-        int intKeyboardInput = -1;
-        keyboard = new Scanner(System.in);
-        try {
-            intKeyboardInput = keyboard.nextInt();
-        }catch (Exception e){
-            System.out.print("PLEASE SELECT ONE OF THE FOLLOWING OPTIONS\n>>> ");
-            return intKeyboardInput;
-        }
-        return intKeyboardInput;
-    }
+
     // MENUS ----------------------------------------------------------------------------------------------------
-    private void manageUsersMenu() throws RemoteException, InterruptedException, NotBoundException {
+    private void manageUsersMenu() throws IOException, InterruptedException, NotBoundException {
         while (true){
             System.out.print(VIEWPLAYERSMENU);
             intKeyboardInput=getIntProtected();
             switch (intKeyboardInput){
                 case 1:
-                    System.out.println("List Users :)");
+                    retry(rmiUSERSLIST,null,REPLYCOUNTER);
                     break;
                 case 2:
-                    System.out.println("Search Users by Name Players :)");
+                    String username2 = this.writeURL();
+                    retry(rmiCHANGEUSERPRIVILEGES,username2,REPLYCOUNTER);
                     break;
                 case 3:
-                    System.out.println("List Active Users :)");
-                    break;
-                case 4:
                     return;
                 default:
-                    break;
+                    System.out.println("Choose one of the options");
             }
+
         }
     }
-    private void adminMenu() throws RemoteException, InterruptedException, NotBoundException {
+    private void adminMenu() throws IOException, InterruptedException, NotBoundException {
         while (true){
             System.out.print(ADMIMENU);
             intKeyboardInput=getIntProtected();
             switch (intKeyboardInput){
                 case 1:
-                    System.out.println("\n --- Manage Players Privileges--");
                     this.manageUsersMenu();
                     break;
                 case 2:
@@ -185,8 +211,8 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
                     retry(rmiGETSYSTEMINFO,null,REPLYCOUNTER);
                     break;
                 case 3:
-                    System.out.println("\n --- View Active Users ---");
-                    retry(rmiGETACTIVEUSERS,null,REPLYCOUNTER);
+                    System.out.println("\n --- ADD URL TO UCBUSCA ---");
+                    retry(rmiADDURL,this.writeURL(),REPLYCOUNTER);
                     break;
                 case 4:
                     System.out.println("\n --- UcBusca ---");
@@ -194,11 +220,11 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
                     break;
                 case 5:
                     System.out.println("\n --- History ---");
-                    // TO DO
+                    retry(rmiHISTORY,this.thisUser,REPLYCOUNTER);
                     break;
                 case 6:
                     System.out.println("\n --- Related Pages ---");
-                    // TO DO
+                    retry(rmiRELATEDPAGES,this.writeURL(),REPLYCOUNTER);
                     break;
                 case 7:
                     System.out.println("\n --- Thank you come again ---");
@@ -208,7 +234,7 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
             }
         }
     }
-    private void mainMenu() throws RemoteException, InterruptedException, NotBoundException {
+    private void mainMenu() throws IOException, InterruptedException, NotBoundException {
         while (true){
             System.out.print(MAINMENU);
             intKeyboardInput = getIntProtected();
@@ -219,9 +245,11 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
                     break;
                 case 2:
                     System.out.println(" --- History ---");
+                    retry(rmiHISTORY,this.thisUser,REPLYCOUNTER);
                     break;
                 case 3:
                     System.out.println(" --- Related Pages ---");
+                    retry(rmiRELATEDPAGES,this.writeURL(),REPLYCOUNTER);
                     break;
                 case 4:
                     System.out.println(" --- Thank you come again ---");
@@ -252,14 +280,34 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
         }
     }
     // MAIN ----------------------------------------------------------------------------------------------------
-    public static void main(String[] args) {
-        try {
-            ServerLibrary ucBusca = (ServerLibrary) LocateRegistry.getRegistry(1401).lookup("ucBusca" );
-            SearchRMIClient client = new SearchRMIClient(ucBusca);
-            System.out.println("Connected to UcBusca");
-            client.welcomePage(ucBusca.connected((SearchRMIClient) client));
-        } catch (Exception e) {
-            System.out.println("Exception in main: " + e);
+    public static void main(String[] args) throws InterruptedException {
+        final int TIMEOUT = 15;
+        for (int i =0 ;i<TIMEOUT;i++){
+            try {
+                ServerLibrary ucBusca = (ServerLibrary) LocateRegistry.getRegistry(1401).lookup("ucBusca" );
+                SearchRMIClient client = new SearchRMIClient(ucBusca);
+                System.out.println("Connected to UcBusca");
+                client.welcomePage(ucBusca.connected((SearchRMIClient) client));
+                return;
+            } catch (Exception e) {
+                System.out.println("Connecting...");
+                try {
+                    Thread.sleep(2000);
+                }catch (InterruptedException es){
+                    System.out.println("Sleep interrupted");
+                }
+            }
         }
+        System.out.println("Server is offline");
     }
 }
+/* ITERATOR THAT CAN BE USED LATER
+                    ArrayList<User> listUsers = this.ucBusca.listActiveUsers();
+                    Iterator it = listUsers.iterator();
+                    while (it.hasNext()) {
+                        User move = (User)it.next();
+                        // Um if para verificar e indicar se e Admin ou nao
+                        System.out.println("[Name] "+move.name+"   [Username] "+move.username);
+                        it.remove(); // avoids a ConcurrentModificationException
+                    }
+   */

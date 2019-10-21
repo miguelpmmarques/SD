@@ -1,11 +1,12 @@
 import java.io.*;
 
 public class User implements Serializable {
-    private String username;
-    private String password;
-    private ClientLibrary client;
-    private boolean isAdmin = false;
-    private boolean notify = false;
+    //Mudar depois
+    public String username;
+    public String password;
+    public ClientLibrary client;
+    public boolean isAdmin = false;
+    public boolean notify = false;
 
     public User(String username,String password,ClientLibrary client) {
         this.username = username;
