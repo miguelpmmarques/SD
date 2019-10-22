@@ -7,6 +7,10 @@ public class User implements Serializable {
     public ClientLibrary client;
     public boolean isAdmin = false;
     public boolean notify = false;
+    public User(String username,String password) {
+        this.username = username;
+        this.password = password;
+    }
 
     public User(String username,String password,ClientLibrary client) {
         this.username = username;
@@ -27,6 +31,6 @@ public class User implements Serializable {
         return this.isAdmin;
     }
     public Boolean getNotify() { return this.notify; }
-    public void setIsAdmin(Boolean decision) { this.isAdmin = decision;}
+    public void setIsAdmin(Boolean decision) { this.isAdmin = true;}
     public void setNotify(Boolean decision) { this.notify = decision;}
 }
