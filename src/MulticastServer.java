@@ -23,7 +23,9 @@ public class MulticastServer extends Thread {
   private String MULTICAST_ADDRESS = "224.0.224.0";
   private int PORT = 4321;
   private long SLEEP_TIME = 5000;
-  private Queue<String> urls_queue = new LinkedList<>();
+  protected Queue<String> urls_queue = new LinkedList<>();
+  QueueProcessor processQueue = null;
+  Comunication com = new Comunication();
 
   public static void main(String[] args) {
     MulticastServer server = new MulticastServer(args[0]);
@@ -35,10 +37,16 @@ public class MulticastServer extends Thread {
   }
 
   public void run() {
+    processQueue = new QueueProcessor(this, "", com);
+    processQueue.start();
     listenMulticast();
     // have to check message parameter later
-    // QueueProcessor processQueue = new QueueProcessor(this, "");
-    // processQueue.start();
+    // depending on the teachers feedback might be necessary later!
+    // DatabaseHandler db_handler = new DatabaseHandler();
+  }
+
+  public QueueProcessor getProcessQueue() {
+    return processQueue;
   }
 
   public Queue<String> getUrlsQueue() {
@@ -63,7 +71,7 @@ public class MulticastServer extends Thread {
                 + received_packet.getPort());
         String message = new String(received_packet.getData(), 0, received_packet.getLength());
         if (!message.equals("ACK")) {
-          HandleRequest handle = new HandleRequest(this, message);
+          HandleRequest handle = new HandleRequest(this, message, com);
           handle.start();
         }
       }
@@ -78,16 +86,37 @@ public class MulticastServer extends Thread {
 }
 
 class QueueProcessor extends HandleRequest {
-  private Queue<String> urls_queue = null;
-
-  public QueueProcessor(MulticastServer parent_thread, String message) {
-    super(parent_thread, message);
+  public QueueProcessor(MulticastServer parent_thread, String message, Comunication com) {
+    super(parent_thread, message, com);
     this.setName("Queue Processor-" + this.getId());
+    System.out.println("URLS PROCESSING THREAD HERE!");
+  }
+
+  public void setUrls_queue(Queue<String> urls_queue) {
+    this.urls_queue = urls_queue;
   }
 
   public void run() {
-    while (!urls_queue.isEmpty()) {
-      // TODO
+    while (true) {
+      urls_queue = com.web_crawler();
+      System.out.println("urls_queue==" + urls_queue);
+      if (!urls_queue.isEmpty()) {
+        synchronized (urls_queue) {
+          /*try {
+            sleep(1000);
+          } catch (InterruptedException e) {
+            e.printStackTrace();
+          }*/
+          String url = urls_queue.remove();
+          System.out.println("Getting url " + url + "from queue to process");
+          try {
+            this.crawl(url);
+          } catch (IOException e) {
+            e.printStackTrace();
+          }
+          System.out.println("Processing url from queue");
+        }
+      }
     }
   }
 }
@@ -98,14 +127,17 @@ class HandleRequest extends Thread {
   static final String USERS_FILE = "users.tmp";
   private String MULTICAST_ADDRESS = "224.0.224.0";
   private String request;
-  private Queue<String> urls_queue = null;
+  protected Queue<String> urls_queue;
+  Comunication com;
 
-  public HandleRequest(MulticastServer parent_thread, String message) {
+  public HandleRequest(MulticastServer parent_thread, String message, Comunication com) {
     super();
     this.setName("Handler-" + this.getId());
+    this.com = com;
     this.request = message;
     this.urls_queue = parent_thread.getUrlsQueue();
     System.out.println(this);
+    System.out.println(this.urls_queue);
   }
 
   public void run() {
@@ -138,7 +170,7 @@ class HandleRequest extends Thread {
 
   public void interpretRequest() throws InterruptedException {
     String request = this.request;
-    System.out.println(request);
+    System.out.println("Request:" + request);
 
     // future expansion necessary
     String[] requests_array = request.split("\\|");
@@ -147,19 +179,23 @@ class HandleRequest extends Thread {
     String[] to_send_multicast_and_tcp = new String[2];
     System.out.println(type);
     System.out.println(value);
+    // MIGUELELELELELELE
     if (type.equals("URL")) {
-      try {
-
-        to_send_multicast_and_tcp = crawl(value);
-        // integrate tcp and multicast code here;
-        // divide references ( index 0  of array ), send one portion to this server's queue, and
-        // send another portion via multicast to each of the other servers (doing that next!
-        // Ass:Paulo)
-        // send the changes made to the database, not the entire database itself, by tcp. (index 1
-        // of array).
-      } catch (IOException e) {
-        e.printStackTrace();
+      synchronized (urls_queue) {
+        System.out.println("Adding " + value + " to urls queues");
+        urls_queue.add(value);
+        System.out.println("URLS QUEUE INSIDE HANDLE REQUEST SCOPE=" + urls_queue);
+        com.process_url(urls_queue);
       }
+
+
+      // integrate tcp and multicast code here;
+      // divide references ( index 0  of array ), send one portion to this server's queue, and
+      // send another portion via multicast to each of the other servers (doing that next!
+      // Ass:Paulo)
+      // send the changes made to the database, not the entire database itself, by tcp. (index 1
+      // of array).
+
     } else if (type.equals("WORD")) {
       searchWord(value);
     } else {
@@ -177,38 +213,46 @@ class HandleRequest extends Thread {
     // loading the indexes and references
     HashMap<String, HashSet<String>> refereceURL = new HashMap<>();
     HashMap<String, HashSet<String>> indexURL = new HashMap<>();
-    loadDataBase(refereceURL, indexURL);
+    refereceURL = DatabaseHandler.loadDataBase(refereceURL, REFERENCEFILE);
+    indexURL = DatabaseHandler.loadDataBase(indexURL, INDEXFILE);
     // getting the urls that have the requested word
     HashSet word_urls = indexURL.get(word);
     // getting the number of references for each url that has the requested word
     HashMap<String, Integer> urls_to_send = new HashMap<>();
-    for (Object elem : word_urls) {
-      String url = (String) elem;
-      HashSet link_references = refereceURL.get(url);
-      if (link_references != null) {
-        int num_references = link_references.size();
-        urls_to_send.put((String) elem, num_references);
-      } else {
-        urls_to_send.put((String) elem, 0);
+    if (word_urls != null) {
+      for (Object elem : word_urls) {
+        String url = (String) elem;
+        HashSet link_references = refereceURL.get(url);
+        if (link_references != null) {
+          int num_references = link_references.size();
+          urls_to_send.put((String) elem, num_references);
+        } else {
+          urls_to_send.put((String) elem, 0);
+        }
       }
+
+      // sorting by number of references to a new hashmap
+      // -------------------------------------------------------------------------------------
+      HashMap<String, Integer> sorted =
+          urls_to_send.entrySet().stream()
+              .sorted(Collections.reverseOrder(Map.Entry.comparingByValue()))
+              .collect(toMap(Map.Entry::getKey, Map.Entry::getValue, (e1, e2) -> e2, HashMap::new));
+      // -------------------------------------------------------------------------------------------------------------------------
+      System.out.println(sorted);
+      // might have to save the user who made the request later;
+      sendMulticastMessage(sorted.toString());
+    } else {
+      sendMulticastMessage(
+          "No such word in our database! Please refer to the admins to ask for further url indexation");
     }
-    // sorting by number of references to a new hashmap
-    // -------------------------------------------------------------------------------------
-    HashMap<String, Integer> sorted =
-        urls_to_send.entrySet().stream()
-            .sorted(Collections.reverseOrder(Map.Entry.comparingByValue()))
-            .collect(toMap(Map.Entry::getKey, Map.Entry::getValue, (e1, e2) -> e2, HashMap::new));
-    // -------------------------------------------------------------------------------------------------------------------------
-    System.out.println(sorted);
-    // might have to save the user who made the request later;
-    sendMulticastMessage(sorted.toString());
   }
 
   public String[] crawl(String url) throws IOException {
     HashMap<String, HashSet<String>> refereceURL = new HashMap<>();
     HashMap<String, HashSet<String>> indexURL = new HashMap<>();
     String[] database_changes_and_references_to_index = new String[2];
-    loadDataBase(refereceURL, indexURL);
+    refereceURL = DatabaseHandler.loadDataBase(refereceURL, REFERENCEFILE);
+    indexURL = DatabaseHandler.loadDataBase(indexURL, INDEXFILE);
     System.out.println("index url:" + indexURL);
     System.out.println("reference url:" + refereceURL);
     try {
@@ -241,68 +285,16 @@ class HandleRequest extends Thread {
     }
     return database_changes_and_references_to_index;
   }
-
-  private static void runtMap(HashMap myhash, HashMap hashFile) {
-    Iterator it = hashFile.entrySet().iterator();
-    while (it.hasNext()) {
-      Map.Entry pair = (Map.Entry) it.next();
-      myhash.put(pair.getKey(), pair.getValue());
-      it.remove(); // avoids a ConcurrentModificationException
-    }
-  }
-
-  private static void runtMapUsers(ArrayList myList, ArrayList arrayFile) {
+  // possibly deprecated
+  /*private static void runtMapUsers(ArrayList myList, ArrayList arrayFile) {
     Iterator it = arrayFile.iterator();
     while (it.hasNext()) {
       myList.add(it.next());
       it.remove(); // avoids a ConcurrentModificationException
     }
-  }
+  }*/
 
-  private static void loadDataBase(
-      HashMap<String, HashSet<String>> refereceURL, HashMap<String, HashSet<String>> indexURL) {
-    File fIndex = new File(INDEXFILE);
-    File frefence = new File(REFERENCEFILE);
-    FileInputStream fis;
-    ObjectInputStream ois;
-    try {
-      fis = new FileInputStream(frefence);
-      ois = new ObjectInputStream(fis);
-      HashMap<String, HashSet<String>> refereceURLaux = (HashMap) ois.readObject();
-      runtMap(refereceURL, refereceURLaux);
-      fis = new FileInputStream(fIndex);
-      ois = new ObjectInputStream(fis);
-      HashMap<String, HashSet<String>> indexURLaux = (HashMap) ois.readObject();
-      runtMap(indexURL, indexURLaux);
 
-    } catch (FileNotFoundException ex) {
-      System.out.println("Rip");
-      refereceURL = new HashMap<>();
-      indexURL = new HashMap<>();
-    } catch (IOException e) {
-      e.printStackTrace();
-    } catch (ClassNotFoundException e) {
-      e.printStackTrace();
-    }
-  }
-
-  private static void loadUsersFromDataBase(ArrayList<User> users_list) {
-    File f_users = new File(USERS_FILE);
-    FileInputStream fis;
-    ObjectInputStream ois;
-    try {
-      fis = new FileInputStream(f_users);
-      ois = new ObjectInputStream(fis);
-      ArrayList users_list_aux = (ArrayList) ois.readObject();
-      runtMapUsers(users_list, users_list_aux);
-    } catch (FileNotFoundException ex) {
-      System.out.println("Rip");
-    } catch (IOException e) {
-      e.printStackTrace();
-    } catch (ClassNotFoundException e) {
-      e.printStackTrace();
-    }
-  }
 
   private static String indexURLreferences(
       Elements links, String inputWebsite, HashMap refereceURL) {
@@ -365,7 +357,8 @@ class DatabaseHandler extends Thread {
   static final String USERS_FILE = "users.tmp";
   private HashMap<String, HashSet<String>> refereceURL = null;
   private HashMap<String, HashSet<String>> indexURL = null;
-  ArrayList<User> users_list = null;
+  private ArrayList<User> users_list = null;
+  private boolean live;
 
   // constructor for saving users
   public DatabaseHandler(ArrayList<User> users_list) {
@@ -384,7 +377,7 @@ class DatabaseHandler extends Thread {
   // depending on the initialization of the class, the thread may save the users or the url HashMaps
   // so far
   public void run() {
-
+    // waiting in conditional variable until save is
     if (this.users_list == null) {
       try {
         System.out.println("SAVING FILES");
@@ -401,14 +394,57 @@ class DatabaseHandler extends Thread {
       }
     }
   }
+
+  public static synchronized ArrayList<User> loadUsersFromDataBase(ArrayList<User> users_list) {
+    File f_users = new File(USERS_FILE);
+    FileInputStream fis;
+    ObjectInputStream ois;
+    try {
+      fis = new FileInputStream(f_users);
+      ois = new ObjectInputStream(fis);
+      ArrayList users_list_aux = (ArrayList) ois.readObject();
+      return users_list;
+    } catch (FileNotFoundException ex) {
+      System.out.println("Rip");
+    } catch (IOException e) {
+      e.printStackTrace();
+    } catch (ClassNotFoundException e) {
+      e.printStackTrace();
+    }
+    return users_list;
+  }
+
+  public static synchronized HashMap<String, HashSet<String>> loadDataBase(
+      HashMap<String, HashSet<String>> map, String file) {
+    File f_ref = new File(file);
+    FileInputStream fis;
+    ObjectInputStream ois;
+    try {
+      fis = new FileInputStream(f_ref);
+      ois = new ObjectInputStream(fis);
+      map = (HashMap) ois.readObject();
+      return map;
+
+    } catch (FileNotFoundException ex) {
+      System.out.println("Rip");
+    } catch (IOException e) {
+      System.out.println("IO");
+      e.printStackTrace();
+    } catch (ClassNotFoundException e) {
+      System.out.println("Class not found");
+      e.printStackTrace();
+    }
+    return new HashMap<>();
+  }
   // for now, only useful for saving users
-  private void saveArraysToDataBase(String file_name, ArrayList<User> list) throws IOException {
+  private synchronized void saveArraysToDataBase(String file_name, ArrayList<User> list)
+      throws IOException {
     FileOutputStream fos = new FileOutputStream(file_name);
     try (ObjectOutputStream oos = new ObjectOutputStream(fos)) {
-      synchronized (oos) {
-        oos.writeObject(users_list);
-        System.out.println("Inside Semaphore saving users");
-      }
+
+      oos.writeObject(users_list);
+      System.out.println("Inside Semaphore saving users");
+
       System.out.println("GUARDADO EM FICHEIROS OBJETOS COM SUCESSO -> USERS");
       oos.close();
       fos.close();
@@ -420,13 +456,13 @@ class DatabaseHandler extends Thread {
     }
   }
   // so far only useful for saving url hashMaps
-  private void saveHashSetsToDataBase(String file_name, HashMap<String, HashSet<String>> map)
-      throws IOException {
+  private synchronized void saveHashSetsToDataBase(
+      String file_name, HashMap<String, HashSet<String>> map) throws IOException {
     FileOutputStream fos = new FileOutputStream(file_name);
     try (ObjectOutputStream oos = new ObjectOutputStream(fos)) {
-      synchronized (oos) {
-        oos.writeObject(map);
-      }
+
+      oos.writeObject(map);
+      System.out.println("Inside semaphore saving indexes or references");
       System.out.println("GUARDADO EM FICHEIROS OBJETOS COM SUCESSO -> INDEX");
       oos.close();
       fos.close();
@@ -436,5 +472,37 @@ class DatabaseHandler extends Thread {
       System.out.println("Erro a escrever para o ficheiro.");
       ex.printStackTrace();
     }
+  }
+}
+
+class Comunication {
+
+  Queue<String> urls_queue;
+  boolean check = false;
+
+
+  synchronized Queue<String> web_crawler() {
+    while (!check)
+      try {
+        wait();
+      } catch (InterruptedException e) {
+        System.out.println("interruptedException caught");
+      }
+
+    check = false;
+    notify();
+    return this.urls_queue;
+  }
+
+  synchronized void process_url(Queue<String> sharedObj) {
+    while (check)
+      try {
+        wait();
+      } catch (InterruptedException e) {
+        System.out.println("interruptedException caught");
+      }
+    check = true;
+    this.urls_queue = sharedObj;
+    notify();
   }
 }
