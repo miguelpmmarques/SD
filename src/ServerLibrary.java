@@ -4,7 +4,7 @@ import java.util.*;
 
 public interface ServerLibrary extends Remote {
     public String connected(ClientLibrary newUser) throws RemoteException;
-    public boolean userRegistration(User newUser) throws RemoteException, UnknownHostException;
+    public String userRegistration(User newUser) throws RemoteException, UnknownHostException;
     public String userLogin(User newUser) throws RemoteException, InterruptedException;
     public String searchWords(String[] words) throws RemoteException;
     public int checkMe() throws RemoteException;

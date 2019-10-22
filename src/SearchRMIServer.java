@@ -55,7 +55,7 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
         System.out.println("[USER CONNECTED]");
         return "    --WELCOME--\n\nLogin - 1\nRegister -2\nSearch -3\nExit -4\n>>> ";
     }
-    public boolean userRegistration(User newUser) throws RemoteException, UnknownHostException {
+    public String userRegistration(User newUser) throws RemoteException, UnknownHostException { // DONE
         String requestToMulticast =  "type|requestUSERRegist;" +
                 "user|"+newUser.username+";" +
                 "pass|"+newUser.password+"";
@@ -63,9 +63,9 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
         System.out.println("[USER REGISTERED] - "+requestToMulticast);
         String answer  =sendToMulticast(requestToMulticast);
 
-        return false;   //Um ifzinho para verificar se o username esta livre
+        return answer;   //Um ifzinho para verificar se o username esta livre
     }
-    public String userLogin(User newUser) throws RemoteException, InterruptedException {
+    public String userLogin(User newUser) throws RemoteException, InterruptedException { // DONE
         //Thread.sleep(5000);
         String requestToMulticast =  "type|requestUSERLogin;" +
                 "user|"+newUser.username+";" +
@@ -74,6 +74,7 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
 
         System.out.println("[USER LOG IN] - "+requestToMulticast);
         String answer = sendToMulticast(requestToMulticast);
+        System.out.println("RESPOSTA -> "+answer);
 
         return answer;
     }
@@ -114,10 +115,10 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
         return "BAL BLA BLA";
     }
     public String getAllUsers() throws RemoteException{
-        String requestToMulticast ="type|requestURLbyWord";
-        System.out.println(requestToMulticast);
+        String requestToMulticast ="type|requestAllUSERSPrivileges";
+
         String answer = sendToMulticast(requestToMulticast);
-        return "Empty";
+        return answer;
     }
 
     public String sendSystemInfo() throws RemoteException{
@@ -228,6 +229,7 @@ class Comunication {
         notify();
         return this.sharedObj;
     }
+
     synchronized void sendAnswerToRMI(String sharedObj) {
 
         while (sendToTCPclient)
@@ -237,6 +239,7 @@ class Comunication {
                 System.out.println("interruptedException caught");
             }
         sendToTCPclient = true;
+
         this.sharedObj = sharedObj;
         notify();
     }

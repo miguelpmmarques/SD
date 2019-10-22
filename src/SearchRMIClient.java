@@ -103,24 +103,39 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
     }
     // SERVER RMI METHODS ------------------------------------------------------------------------------------------
     private void retry(int rmiMethod,Object parameter,int replyCounter) throws RemoteException, InterruptedException, NotBoundException {
+        HashMap<String,String> myDic;
         try {
             this.ucBusca=(ServerLibrary) LocateRegistry.getRegistry(1401).lookup("ucBusca" );
             switch (rmiMethod){
                 case rmiLOGIN:
-                    HashMap<String,String> myDic = protocolReaderRMISide(this.ucBusca.userLogin((User)parameter));
+                    myDic = protocolReaderRMISide(this.ucBusca.userLogin((User)parameter));
+
                     if(myDic.get("status").equals("logged on")){
                         System.out.println("YOU JUST LOGGED ON");
                         this.mainMenu();
-                    } else{
+                    } else if(myDic.get("status").equals("logged admin")){
+                        System.out.println("YOU JUST LOGGED ON AS ADMIN");
                         this.adminMenu();
+                    }
+                    else {
+                        System.out.println("INVALID LOGIN");
+                        return;
                     }
                     break;
                 case rmiREGISTRATION:
-                    if(this.ucBusca.userRegistration((User)parameter)){
-                        this.adminMenu();
-                    } else{
+                    myDic = protocolReaderRMISide(this.ucBusca.userRegistration((User)parameter));
+                    if(myDic.get("status").equals("Success")){
+                        System.out.println("YOU JUST LOGGED ON");
                         this.mainMenu();
+                    } else if(myDic.get("status").equals("Admin")){
+                        System.out.println("YOU JUST LOGGED ON AS ADMIN");
+                        this.adminMenu();
                     }
+                    else {
+                        System.out.println("INVALID REGISTER, USERNAME ALREADY IN USE");
+                        return;
+                    }
+
                     break;
                 case rmiSEARCH:
                     String searchOutput = this.ucBusca.searchWords((String[]) parameter);
@@ -135,7 +150,8 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
                     pressToContinue();
                     break;
                 case rmiUSERSLIST:
-                    protocolReaderRMISide(this.ucBusca.getAllUsers());
+                    myDic = protocolReaderRMISide(this.ucBusca.getAllUsers());
+                    printArray("user",myDic);
                     pressToContinue();
                     break;
                 case rmiRELATEDPAGES:
