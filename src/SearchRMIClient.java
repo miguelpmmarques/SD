@@ -84,18 +84,35 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
         }while (input.trim().length() == 0);
         return input;
     }
+    // Translate RMI answers
+    private HashMap<String,String> protocolReaderRMISide(String sms){
+        HashMap<String,String> myDic = new HashMap();
+        String[] splitedsms = sms.split("\\;");
+        for (int i =0;i<splitedsms.length;i++){
+            String[] splitedsplitedsms = splitedsms[i].split("\\|");
+            myDic.put((String)splitedsplitedsms[0],(String)splitedsplitedsms[1]);
+        }
+        return myDic;
+    }
+    private void printArray(String name,HashMap myDic){
+        int arraySize = Integer.parseInt((String)myDic.get(name+"_count"));
+        System.out.println(arraySize);
+        for(int i =1 ;i<arraySize+1;i++){
+            System.out.println((String)myDic.get(name+"_"+i));
+        }
+    }
     // SERVER RMI METHODS ------------------------------------------------------------------------------------------
     private void retry(int rmiMethod,Object parameter,int replyCounter) throws RemoteException, InterruptedException, NotBoundException {
         try {
             this.ucBusca=(ServerLibrary) LocateRegistry.getRegistry(1401).lookup("ucBusca" );
-      System.out.println((User)parameter);
             switch (rmiMethod){
                 case rmiLOGIN:
-                    System.out.println(this.ucBusca);
-                    if(this.ucBusca.userLogin((User)parameter)){
-                        this.adminMenu();
-                    } else{
+                    HashMap<String,String> myDic = protocolReaderRMISide(this.ucBusca.userLogin((User)parameter));
+                    if(myDic.get("status").equals("logged on")){
+                        System.out.println("YOU JUST LOGGED ON");
                         this.mainMenu();
+                    } else{
+                        this.adminMenu();
                     }
                     break;
                 case rmiREGISTRATION:
@@ -114,19 +131,19 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
                     this.ucBusca.addURLbyADMIN((String) parameter);
                     break;
                 case rmiGETSYSTEMINFO:
-                    System.out.print(this.ucBusca.sendSystemInfo());
+                    protocolReaderRMISide(this.ucBusca.sendSystemInfo());
                     pressToContinue();
                     break;
                 case rmiUSERSLIST:
-                    System.out.print(this.ucBusca.getAllUsers());
+                    protocolReaderRMISide(this.ucBusca.getAllUsers());
                     pressToContinue();
                     break;
                 case rmiRELATEDPAGES:
-                    System.out.println(this.ucBusca.getReferencePages((String) parameter));
+                    protocolReaderRMISide(this.ucBusca.getReferencePages((String) parameter));
                     pressToContinue();
                     break;
                 case rmiHISTORY:
-                    System.out.println(this.ucBusca.getHistory((User)parameter));
+                    protocolReaderRMISide(this.ucBusca.getHistory((User)parameter));
                     pressToContinue();
                     break;
                 case rmiCHANGEUSERPRIVILEGES:
@@ -136,7 +153,6 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
                     break;
             }
         }catch (Exception e) {
-      System.out.println(e);
             try {
                 Thread.sleep(2000);
             } catch(InterruptedException e2) {
@@ -280,7 +296,7 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
         }
     }
     // MAIN ----------------------------------------------------------------------------------------------------
-    public static void main(String[] args) throws InterruptedException {
+    public static void main(String[] args)  {
         final int TIMEOUT = 15;
         for (int i =0 ;i<TIMEOUT;i++){
             try {
@@ -301,6 +317,8 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
         System.out.println("Server is offline");
     }
 }
+
+
 /* ITERATOR THAT CAN BE USED LATER
                     ArrayList<User> listUsers = this.ucBusca.listActiveUsers();
                     Iterator it = listUsers.iterator();

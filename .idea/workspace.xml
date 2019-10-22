@@ -2,10 +2,15 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="235f99e8-036f-4fa6-a9ca-7e6d8e32c8b0" name="Default Changelist" comment="">
+      <change afterPath="$PROJECT_DIR$/.idea/libraries/jsoup_1_12_1.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Projeto SD.iml" beforeDir="false" afterPath="$PROJECT_DIR$/Projeto SD.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/out/production/Projeto SD/META-INF/Projeto SD.kotlin_module" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/out/production/Projeto SD/SearchRMIClient.class" beforeDir="false" afterPath="$PROJECT_DIR$/out/production/Projeto SD/SearchRMIClient.class" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/out/production/Projeto SD/SearchRMIServer.class" beforeDir="false" afterPath="$PROJECT_DIR$/out/production/Projeto SD/SearchRMIServer.class" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/out/production/Projeto SD/ServerLibrary.class" beforeDir="false" afterPath="$PROJECT_DIR$/out/production/Projeto SD/ServerLibrary.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/out/production/Projeto SD/User.class" beforeDir="false" afterPath="$PROJECT_DIR$/out/production/Projeto SD/User.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/MulticastServer.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/MulticastServer.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/SearchRMIClient.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/SearchRMIClient.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/SearchRMIServer.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/SearchRMIServer.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/ServerLibrary.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/ServerLibrary.java" afterDir="false" />
@@ -33,7 +38,7 @@
     <property name="SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
     <property name="WebServerToolWindowFactoryState" value="false" />
     <property name="aspect.path.notification.shown" value="true" />
-    <property name="last_opened_file_path" value="$PROJECT_DIR$/../SD/jsoupExample" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/../TCP_Debug" />
     <property name="node.js.detected.package.eslint" value="true" />
     <property name="node.js.detected.package.tslint" value="true" />
     <property name="node.js.path.for.package.eslint" value="project" />
@@ -56,7 +61,21 @@
       </list>
     </option>
   </component>
-  <component name="RunManager" selected="Application.SearchRMIClient">
+  <component name="RunManager" selected="Application.MulticastServer">
+    <configuration name="MulticastClient" type="Application" factoryName="Application" temporary="true" nameIsGenerated="true">
+      <option name="MAIN_CLASS_NAME" value="MulticastClient" />
+      <module name="Projeto SD" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="MulticastServer" type="Application" factoryName="Application" temporary="true" nameIsGenerated="true">
+      <option name="MAIN_CLASS_NAME" value="MulticastServer" />
+      <module name="Projeto SD" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
     <configuration name="SearchRMIClient" type="Application" factoryName="Application" singleton="false" temporary="true" nameIsGenerated="true">
       <option name="MAIN_CLASS_NAME" value="SearchRMIClient" />
       <module name="Projeto SD" />
@@ -74,11 +93,15 @@
     <list>
       <item itemvalue="Application.SearchRMIServer" />
       <item itemvalue="Application.SearchRMIClient" />
+      <item itemvalue="Application.MulticastServer" />
+      <item itemvalue="Application.MulticastClient" />
     </list>
     <recent_temporary>
       <list>
         <item itemvalue="Application.SearchRMIClient" />
+        <item itemvalue="Application.MulticastServer" />
         <item itemvalue="Application.SearchRMIServer" />
+        <item itemvalue="Application.MulticastClient" />
       </list>
     </recent_temporary>
   </component>
@@ -94,6 +117,7 @@
       <updated>1571317076132</updated>
       <workItem from="1571317078209" duration="38626000" />
       <workItem from="1571401175084" duration="25193000" />
+      <workItem from="1571681453377" duration="14610000" />
     </task>
     <task id="LOCAL-00001" summary="Teste">
       <created>1571415704277</created>
@@ -120,7 +144,9 @@
       <map>
         <entry key="MAIN">
           <value>
-            <State />
+            <State>
+              <option name="COLUMN_ORDER" />
+            </State>
           </value>
         </entry>
       </map>
