@@ -5,9 +5,9 @@ import java.util.*;
 public interface ServerLibrary extends Remote {
     public String connected(ClientLibrary newUser) throws RemoteException;
     public boolean userRegistration(User newUser) throws RemoteException, UnknownHostException;
-    public boolean userLogin(User newUser) throws RemoteException, InterruptedException;
+    public String userLogin(User newUser) throws RemoteException, InterruptedException;
     public String searchWords(String[] words) throws RemoteException;
-    public Queue<String>  checkMe() throws RemoteException;
+    public int checkMe() throws RemoteException;
     public String sendSystemInfo() throws RemoteException;
     public void addURLbyADMIN(String url) throws RemoteException;
     public String getAllUsers() throws RemoteException;

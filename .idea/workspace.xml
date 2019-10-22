@@ -1,14 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="235f99e8-036f-4fa6-a9ca-7e6d8e32c8b0" name="Default Changelist" comment="Teste2">
+    <list default="true" id="235f99e8-036f-4fa6-a9ca-7e6d8e32c8b0" name="Default Changelist" comment="">
+      <change afterPath="$PROJECT_DIR$/.idea/libraries/jsoup_1_12_1.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Projeto SD.iml" beforeDir="false" afterPath="$PROJECT_DIR$/Projeto SD.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/out/production/Projeto SD/META-INF/Projeto SD.kotlin_module" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/out/production/Projeto SD/SearchRMIClient.class" beforeDir="false" afterPath="$PROJECT_DIR$/out/production/Projeto SD/SearchRMIClient.class" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/out/production/Projeto SD/SearchRMIServer.class" beforeDir="false" afterPath="$PROJECT_DIR$/out/production/Projeto SD/SearchRMIServer.class" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/out/production/Projeto SD/ServerLibrary.class" beforeDir="false" afterPath="$PROJECT_DIR$/out/production/Projeto SD/ServerLibrary.class" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/out/production/Projeto SD/User.class" beforeDir="false" afterPath="$PROJECT_DIR$/out/production/Projeto SD/User.class" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/MulticastServer.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/MulticastServer.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/SearchRMIClient.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/SearchRMIClient.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/SearchRMIServer.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/SearchRMIServer.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/ServerLibrary.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/ServerLibrary.java" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -33,18 +38,16 @@
     <property name="SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
     <property name="WebServerToolWindowFactoryState" value="false" />
     <property name="aspect.path.notification.shown" value="true" />
-    <property name="last_opened_file_path" value="$PROJECT_DIR$/jsoupExample" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/../TCP_Debug" />
     <property name="node.js.detected.package.eslint" value="true" />
     <property name="node.js.detected.package.tslint" value="true" />
     <property name="node.js.path.for.package.eslint" value="project" />
     <property name="node.js.path.for.package.tslint" value="project" />
     <property name="node.js.selected.package.eslint" value="(autodetect)" />
     <property name="node.js.selected.package.tslint" value="(autodetect)" />
-    <property name="nodejs_package_manager_path" value="npm" />
     <property name="project.structure.last.edited" value="Modules" />
     <property name="project.structure.proportion" value="0.15" />
     <property name="project.structure.side.proportion" value="0.2" />
-    <property name="settings.editor.selected.configurable" value="preferences.sourceCode" />
   </component>
   <component name="RunDashboard">
     <option name="ruleStates">
@@ -59,17 +62,16 @@
     </option>
   </component>
   <component name="RunManager" selected="Application.MulticastServer">
-    <configuration name="MulticastClient" type="Application" factoryName="Application" singleton="false">
+    <configuration name="MulticastClient" type="Application" factoryName="Application" temporary="true" nameIsGenerated="true">
       <option name="MAIN_CLASS_NAME" value="MulticastClient" />
       <module name="Projeto SD" />
       <method v="2">
         <option name="Make" enabled="true" />
       </method>
     </configuration>
-    <configuration name="MulticastServer" type="Application" factoryName="Application" singleton="false">
+    <configuration name="MulticastServer" type="Application" factoryName="Application" temporary="true" nameIsGenerated="true">
       <option name="MAIN_CLASS_NAME" value="MulticastServer" />
       <module name="Projeto SD" />
-      <option name="PROGRAM_PARAMETERS" value="0" />
       <method v="2">
         <option name="Make" enabled="true" />
       </method>
@@ -89,15 +91,17 @@
       </method>
     </configuration>
     <list>
-      <item itemvalue="Application.MulticastServer" />
-      <item itemvalue="Application.MulticastClient" />
       <item itemvalue="Application.SearchRMIServer" />
       <item itemvalue="Application.SearchRMIClient" />
+      <item itemvalue="Application.MulticastServer" />
+      <item itemvalue="Application.MulticastClient" />
     </list>
     <recent_temporary>
       <list>
         <item itemvalue="Application.SearchRMIClient" />
+        <item itemvalue="Application.MulticastServer" />
         <item itemvalue="Application.SearchRMIServer" />
+        <item itemvalue="Application.MulticastClient" />
       </list>
     </recent_temporary>
   </component>
@@ -113,13 +117,7 @@
       <updated>1571317076132</updated>
       <workItem from="1571317078209" duration="38626000" />
       <workItem from="1571401175084" duration="25193000" />
-      <workItem from="1571445173850" duration="5274000" />
-      <workItem from="1571451046471" duration="474000" />
-      <workItem from="1571522252577" duration="22663000" />
-      <workItem from="1571596489103" duration="12979000" />
-      <workItem from="1571680020898" duration="1764000" />
-      <workItem from="1571682138421" duration="6191000" />
-      <workItem from="1571690195102" duration="10787000" />
+      <workItem from="1571681453377" duration="14610000" />
     </task>
     <task id="LOCAL-00001" summary="Teste">
       <created>1571415704277</created>
