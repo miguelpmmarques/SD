@@ -97,7 +97,7 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
         System.out.println(requestToMulticast);
         String answer = sendToMulticast(requestToMulticast,this.numberRequest);
         this.numberRequest++;
-        return "Empty";
+        return answer;
     }
     public String getReferencePages(String url) throws RemoteException{
         String requestToMulticast ="id|"+this.numberRequest+";type|requestURLbyRef;" + "URL|"+url;
@@ -143,10 +143,12 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
         return answer;
     }
     public String searchWords(String[] words) throws RemoteException{
+        System.out.println();
         String requestToMulticast ="id|"+this.numberRequest+";type|requestURLbyWord;" +
-                "word_count|"+words.length;
-        for (int i = 1; i <= words.length; i++) {
-            requestToMulticast+= "word_"+ i+"|"+words[i-1]+";";
+                "user|"+words[0]+
+                ";word_count|"+(words.length-1)+";";
+        for (int i = 1; i <= words.length-1; i++) {
+            requestToMulticast+= "word_"+ i+"|"+words[i]+";";
         }
         System.out.println("[USER SEARCH] - "+requestToMulticast);
         String answer = sendToMulticast(requestToMulticast,this.numberRequest);
@@ -170,12 +172,12 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
         return this.numberRequest;
     }
     // MAIN
-    public static void main(String[] args) throws RemoteException, NotBoundException {
+    public static void main(String[] args) throws RemoteException {
         connection(0);
 
 
     }
-    public static void connection(int numberRequest) throws RemoteException, NotBoundException {
+    public static void connection(int numberRequest) throws RemoteException {
         try {
             Registry r = LocateRegistry.createRegistry(1401);
             r.rebind("ucBusca", new SearchRMIServer(new Comunication(),numberRequest));
@@ -187,7 +189,7 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
         }
     }
 
-    public static void failover(int numberRequest) throws RemoteException, NotBoundException {
+    public static void failover(int numberRequest) throws RemoteException {
         ServerLibrary checkMainServer;
         int faultCounter = 0;
         while (true){

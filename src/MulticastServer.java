@@ -1,24 +1,143 @@
 import java.io.IOException;
-import java.net.DatagramPacket;
-import java.net.InetAddress;
-import java.net.MulticastSocket;
+import java.net.*;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
-import javax.swing.*;
 import java.io.*;
-import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
-import java.sql.Array;
 import java.util.*;
-import java.util.concurrent.Semaphore;
-import java.util.function.ToIntFunction;
-import java.util.Queue;
 
 import static java.util.stream.Collectors.toMap;
+//TCP CLASSES
+// CLIENT ---------------------------------------------------------------------
+class TCP_CLIENT implements Runnable {
+  Thread t;
+  int tcpServerPort;
+  MessageByTCP messageToBeSent;
+
+  public TCP_CLIENT(int tcpServerPort,MessageByTCP messageToBeSent) {
+    this.messageToBeSent = messageToBeSent;
+    this.tcpServerPort = tcpServerPort;
+    t = new Thread(this);
+    t.start();
+  }
+  public void run() {
+    Socket s = null;
+    try {
+      s = new Socket("0.0.0.0", this.tcpServerPort);
+      System.out.println("SOCKET=" + s);
+      ObjectOutputStream objectOutput = new ObjectOutputStream(s.getOutputStream());
+      objectOutput.reset();
+      objectOutput.writeObject(this.messageToBeSent);
+      System.out.println("[CLIENT SOCKET] - Sent Info to "+ this.tcpServerPort);
+      s.close();
+      return;
+    } catch (UnknownHostException e) {
+      System.out.println("Sock:" + e.getMessage());
+    } catch (IOException e) {
+      System.out.println("IO:" + e.getMessage());
+    } finally {
+      if (s != null)
+        try {
+          s.close();
+        } catch (IOException e) {
+          System.out.println("close:" + e.getMessage());
+        }
+      System.out.println("[CLIENT SOCKET] - Dead");
+    }
+
+
+  }
+}
+
+// SERVER---------------------------------------------------------------------
+class TCP_SERVER implements Runnable {
+
+  private Thread serverThread;
+  private ServerSocket s;
+  private int serversocketPort;
+
+  public TCP_SERVER(int serversocketPort) {
+    this.serverThread = new Thread(this);
+    this.serversocketPort = serversocketPort;
+  }
+  public void startTCPServer(){
+    serverThread.start();
+  }
+  public void run() {
+    while (true) {
+      Socket clientSocket = null;
+      try {
+        clientSocket = this.s.accept();
+      } catch (IOException e) {
+        e.printStackTrace();
+        System.out.println("CLIENT OFFLINE");
+      }
+      System.out.println("CLIENT_SOCKET (created at accept())=" + clientSocket);
+
+      new Connection(clientSocket);
+    }
+  }
+  public int tryConnection(){
+
+    try {
+      this.s = new ServerSocket(this.serversocketPort );
+      System.out.println("LISTEN SOCKET=" + s);
+    } catch (IOException e) {
+      System.out.println("Port Occupied");
+      ++this.serversocketPort;
+      tryConnection();
+    }
+    return this.serversocketPort;
+  }
+}
+class Connection extends Thread {
+  DataInputStream in;
+  DataOutputStream out;
+  ObjectInputStream objectInput;
+  Socket clientSocket;
+  public Connection(Socket aClientSocket) {
+    try {
+      clientSocket = aClientSocket;
+      in = new DataInputStream(clientSocket.getInputStream());
+      objectInput = new ObjectInputStream(clientSocket.getInputStream());
+      this.start();
+    } catch (IOException e) {
+      System.out.println("Connection:" + e.getMessage());
+    }
+  }
+
+  //=============================
+  public void run() {
+    MessageByTCP object = null;
+    while (true) {
+      try {
+        object = (MessageByTCP)objectInput.readObject();
+        System.out.println("[DATA] - "+object.getUsers().get(0));
+      } catch (EOFException e) {
+
+        System.out.println("Client Loggeg out");
+        return;
+      } catch (IOException e) {
+        System.out.println("IO:" + e);
+        System.out.println("Client Loggeg out");
+        return;
+      } catch (ClassNotFoundException e) {
+        e.printStackTrace();
+        System.out.println("Client Loggeg out");
+        return;
+      }
+
+    }
+
+  }
+}
+
+
+
 
 // thread responsible for listening in on multicast requests
 public class MulticastServer extends Thread {
@@ -27,15 +146,42 @@ public class MulticastServer extends Thread {
   protected Queue<String> urls_queue = new LinkedList<>();
   protected QueueProcessor processQueue = null;
   protected ComunicationUrlsQueueRequestHandler com = new ComunicationUrlsQueueRequestHandler();
+  private int myIdByTCP;
   HashMap responsesTable;
 
   public static void main(String[] args) {
-    MulticastServer server = new MulticastServer("0");
+    TCP_SERVER serverTCP = new TCP_SERVER(1999);
+    int portId = serverTCP.tryConnection();
+    System.out.println("Multicast Id -> "+portId);
+    serverTCP.startTCPServer();
+    MulticastServer server = new MulticastServer(portId);
     server.start();
   }
 
-  public MulticastServer(String id) {
+  private void notifyALLbyMulticast(){
+
+    MulticastSocket socket = null;
+
+    System.out.println(this.getName() + " ready...");
+    String message = "type|MulticatImAlive;myid|"+myIdByTCP;
+    try {
+      socket = new MulticastSocket(); // create socket without binding it (only for sending)
+      byte[] buffer = message.getBytes();
+      InetAddress group = InetAddress.getByName(MULTICAST_ADDRESS);
+      DatagramPacket packet = new DatagramPacket(buffer, buffer.length, group, PORT);
+      System.out.println("NOTIFICATION SENT");
+      socket.send(packet);
+    } catch (IOException e) {
+      e.printStackTrace();
+    } finally {
+      socket.close();
+    }
+  }
+
+  private MulticastServer(int id) {
     super("server-" + id);
+    this.myIdByTCP = id;
+    notifyALLbyMulticast();
   }
 
   public void run() {
@@ -167,10 +313,11 @@ class HandleRequest extends Thread {
   }
 
   public void run() {
+
     System.out.println("I'm " + this.getName());
     // String message_to_send_to_rmi=protocolReaderMulticastSide(this.request);
     String messageToRMI = null;
-    /*try {
+    try {
       messageToRMI = protocolReaderMulticastSide(this.request);
     } catch (InterruptedException e) {
       e.printStackTrace();
@@ -178,12 +325,13 @@ class HandleRequest extends Thread {
     if (messageToRMI.equals(""))
       return;
     System.out.println(messageToRMI);
-    sendMulticastMessage(messageToRMI);*/
+    sendMulticastMessage(messageToRMI);
+    /*
     try {
       interpretRequest();
     } catch (InterruptedException e) {
       e.printStackTrace();
-    }
+    }*/
     /*System.out.println("Message to send to rmi==" + message_to_send_to_rmi);
     // add to queue os responses awaiting acknowledge
         sendMulticastMessage(message_to_send_to_rmi);*/
@@ -210,41 +358,80 @@ class HandleRequest extends Thread {
 
   private String protocolReaderMulticastSide(String sms) throws InterruptedException {
     String[] splitedsms = sms.split("\\;");
+    DatabaseHandler bd;
+    ArrayList<User> users;
     String messageToRMI = "";
     HashMap<String,String> myDic = new HashMap<>();
     for (int i =0;i<splitedsms.length;i++){
       String[] splitedsplitedsms = splitedsms[i].split("\\|");
-
       System.out.println(splitedsms[i]);
       myDic.put(splitedsplitedsms[0],splitedsplitedsms[1]);
     }
-    System.out.println("QUEUE DE RESPOSTAS -> "+responsesTable);
+
     if(myDic.get("ACK") != null){
       responsesTable.remove(myDic.get("ACK"));
       System.out.println("QUEUE DE RESPOSTAS AFTER ACK -> "+responsesTable);
       return "";
     }
-    if (responsesTable.get(myDic.get("id"))!=null ){
-      System.out.println("NAO FOI A BASE DE DADOS");
+    if (myDic.get("type").equals("MulticatImAlive")){
+      System.out.println("OH SHIT MY NIGGA "+myDic.get("myid")+" IS ALIVE!");
+      System.out.println(DatabaseHandler.loadDataBase(REFERENCEFILE));
+      System.out.println(DatabaseHandler.loadDataBase(INDEXFILE));
+      System.out.println(DatabaseHandler.loadUsersFromDataBase());
+      MessageByTCP messageToTCP = new MessageByTCP(DatabaseHandler.loadDataBase(REFERENCEFILE),DatabaseHandler.loadDataBase(INDEXFILE),DatabaseHandler.loadUsersFromDataBase());
+      TCP_CLIENT tcpClient = new TCP_CLIENT(Integer.parseInt(myDic.get("myid")),messageToTCP);
+
+    }
+
+      if (responsesTable.get(myDic.get("id"))!=null ){
       return (String)responsesTable.get(myDic.get("id"));
     }
     switch ((String)myDic.get("type")) {
       case "requestURLbyWord":
-        return "id|"+(String)myDic.get("id")+";type|responseURLbyWord;status|logged on";
+        users = DatabaseHandler.loadUsersFromDataBase();
+        for (int i = 0; i < users.size(); i++) {
+          if (users.get(i).username.equals((String)myDic.get("user")) )
+          {
+            users.get(i).addSearchToHistory(returnString("word", myDic));
+            bd = new DatabaseHandler(users);
+            bd.start();
+          }
+        }
+        return "id|"+(String)myDic.get("id")+";type|responseURLbyWord"; //AINDA NAO ESTA FEITO, APENAS ESTA A GUARDAR O HISTORICO
+
 
       case "requestURLbyRef":
-        break;
+
+        return "id|"+(String)myDic.get("id")+";type|responseURLbyRef"; //AINDA NAO ESTA FEITO, APENAS ESTA A GUARDAR O HISTORICO
       case "requestUSERhistory":
-        break;
-      case "requestUSERLogin":
-        ArrayList<User> usersL = DatabaseHandler.loadUsersFromDataBase();
-        System.out.println("SIZE USERS - "+usersL.size());
-        for (int i = 0; i < usersL.size(); i++) {
-          if (usersL.get(i).username.equals((String)myDic.get("user")) && usersL.get(i).password.equals((String)myDic.get("pass")))
+        User myUser;
+        String message2send;
+        ArrayList<String> myUserHistory;
+        users = DatabaseHandler.loadUsersFromDataBase();
+        for (int i = 0; i < users.size(); i++) {
+          if (users.get(i).username.equals((String)myDic.get("user")) )
           {
-            if (usersL.get(i).getIsAdmin()){
-              if (usersL.get(i).getNotify()){
-                usersL.get(i).setNotify(false);
+            myUser = users.get(i);
+            myUserHistory = myUser.getSearchToHistory();
+            message2send = "url_count|"+myUserHistory.size()+";";
+            for (int j = 0; j < myUserHistory.size(); j++) {
+              message2send += "url_"+(j+1)+"|"+myUserHistory.get(j)+";";
+
+            }
+            return "id|"+(String)myDic.get("id")+";type|responsetUSERhistory;"+message2send;
+          }
+        }
+
+
+        return "id|"+(String)myDic.get("id")+";type|responsetUSERhistory;";
+      case "requestUSERLogin":
+        users = DatabaseHandler.loadUsersFromDataBase();
+        for (int i = 0; i < users.size(); i++) {
+          if (users.get(i).username.equals((String)myDic.get("user")) && users.get(i).password.equals((String)myDic.get("pass")))
+          {
+            if (users.get(i).getIsAdmin()){
+              if (users.get(i).getNotify()){
+                users.get(i).setNotify(false);
                 responsesTable.put(myDic.get("id"),"id|"+(String)myDic.get("id")+";type|responseUSERLogin;status|logged admin;Notify|true");
                 return "id|"+(String)myDic.get("id")+";type|responseUSERLogin;status|logged admin;Notify|true";
 
@@ -259,42 +446,37 @@ class HandleRequest extends Thread {
 
         return "id|"+(String)myDic.get("id")+";type|responseUSERLogin;status|logged off;";
       case "requestUSERRegist":
-        ArrayList<User> usersR = DatabaseHandler.loadUsersFromDataBase();
-        System.out.println("SIZE USERS - "+usersR.size());
-        if (usersR.isEmpty()){
+        users = DatabaseHandler.loadUsersFromDataBase();
+        if (users.isEmpty()){
           User adminUser = new User((String)myDic.get("user"),(String)myDic.get("pass"));
           adminUser.setIsAdmin();
-          usersR.add(adminUser);
+          users.add(adminUser);
 
-          DatabaseHandler bd = new DatabaseHandler(usersR);
+          bd = new DatabaseHandler(users);
           bd.start();
           responsesTable.put(myDic.get("id"),"id|"+(String)myDic.get("id")+";type|responseUSERRegist;status|Admin");
           return "id|"+(String)myDic.get("id")+";type|responseUSERRegist;status|Admin";
         }
-        for (int i = 0; i < usersR.size(); i++) {
-          System.out.println(usersR.get(i));
-          if (usersR.get(i).username.equals((String)myDic.get("user")))
+        for (int i = 0; i < users.size(); i++) {
+          if (users.get(i).username.equals((String)myDic.get("user")))
           {
             responsesTable.put(myDic.get("id"),"id|"+(String)myDic.get("id")+";type|responseUSERRegist;status|Failled");
             return "id|"+(String)myDic.get("id")+";type|responseUSERRegist;status|Failled";
           }
         }
-        usersR.add(new User((String)myDic.get("user"),(String)myDic.get("pass")));
-        System.out.println("SIZE USERS AFTER REGIST - "+usersR.size());
-        DatabaseHandler bd = new DatabaseHandler(usersR);
+        users.add(new User((String)myDic.get("user"),(String)myDic.get("pass")));
+        bd = new DatabaseHandler(users);
         bd.start();
         responsesTable.put(myDic.get("id"),"id|"+(String)myDic.get("id")+";type|responseUSERRegist;status|Success");
         return "id|"+(String)myDic.get("id")+";type|responseUSERRegist;status|Success";
       case "requestAllUSERSPrivileges":
-        ArrayList<User> usersS = DatabaseHandler.loadUsersFromDataBase();
-        System.out.println("SIZE USERS - "+usersS.size());
+        users = DatabaseHandler.loadUsersFromDataBase();
+        String messageToSend = "id|"+(String)myDic.get("id")+";type|responseUSERSPrivileges;user_count|"+users.size()+";";
 
-        String messageToSend = "id|"+(String)myDic.get("id")+";type|responseUSERSPrivileges;user_count|"+usersS.size()+";";
-
-        for (int i = 0; i < usersS.size(); i++)  {
+        for (int i = 0; i < users.size(); i++)  {
           // Um if para verificar e indicar se e Admin ou nao
-          messageToSend+="user_"+(i+1)+"|"+usersS.get(i).username+" -> ";
-          if(usersS.get(i).getIsAdmin()){
+          messageToSend+="user_"+(i+1)+"|"+users.get(i).username+" -> ";
+          if(users.get(i).getIsAdmin()){
             messageToSend+="Admin;";
           }
           else {
@@ -304,24 +486,24 @@ class HandleRequest extends Thread {
         responsesTable.put(myDic.get("id"),messageToSend);
         return messageToSend;
       case "requestSetNotify":
-        ArrayList<User> usersN = DatabaseHandler.loadUsersFromDataBase();
-        for (int i = 0; i < usersN.size(); i++)  {
+        users = DatabaseHandler.loadUsersFromDataBase();
+        for (int i = 0; i < users.size(); i++)  {
 
-          if (myDic.get("user").equals(usersN.get(i).username)){
-            usersN.get(i).setNotify(true);
-            DatabaseHandler bd3 = new DatabaseHandler(usersN);
-            bd3.start();
+          if (myDic.get("user").equals(users.get(i).username)){
+            users.get(i).setNotify(true);
+            bd = new DatabaseHandler(users);
+            bd.start();
           }
           responsesTable.put(myDic.get("id"),"id|"+(String)myDic.get("id")+";type|responseSetNotify");
           return "id|"+(String)myDic.get("id")+";type|responseSetNotify";
         }
       case "requestChangeUSERPrivileges":
-        ArrayList<User> usersP = DatabaseHandler.loadUsersFromDataBase();
-        for (int i = 0; i < usersP.size(); i++)  {
-          if (myDic.get("user").equals(usersP.get(i).username)){
-            usersP.get(i).setIsAdmin();
-            DatabaseHandler bd2 = new DatabaseHandler(usersP);
-            bd2.start();
+        users = DatabaseHandler.loadUsersFromDataBase();
+        for (int i = 0; i < users.size(); i++)  {
+          if (myDic.get("user").equals(users.get(i).username)){
+            users.get(i).setIsAdmin();
+            bd = new DatabaseHandler(users);
+            bd.start();
             responsesTable.put(myDic.get("id"),"id|"+(String)myDic.get("id")+";type|responseaddURLbyADMIN;" + "status|New admin added with success");
             return "id|"+(String)myDic.get("id")+";type|responseaddURLbyADMIN;" + "status|New admin added with success";
           }
@@ -335,9 +517,17 @@ class HandleRequest extends Thread {
       case "requestSYSinfo":
         break;
       default:
-        messageToRMI = "Error in protocol type";
+        messageToRMI = "";
     }
     return messageToRMI;
+  }
+  private String returnString(String name,HashMap myDic){
+    String returnS = "";
+    int arraySize = Integer.parseInt((String)myDic.get(name+"_count"));
+    for(int i =1 ;i<arraySize+1;i++){
+      returnS+= (String)myDic.get(name+"_"+i) + " ";
+    }
+    return returnS;
   }
   /*synchronized (urls_queue) {
       System.out.println("Adding " + value + " to urls queues");
@@ -399,10 +589,10 @@ class HandleRequest extends Thread {
     ArrayList<HashMap<String, Integer>> aux_array = new ArrayList<>();
     try {
       System.out.println("reading from database");
-      refereceURL = DatabaseHandler.loadDataBase(refereceURL, REFERENCEFILE);
+      refereceURL = DatabaseHandler.loadDataBase( REFERENCEFILE);
       //System.out.println("finished reading from database");
       //System.out.println("reading from database");
-      indexURL = DatabaseHandler.loadDataBase(indexURL, INDEXFILE);
+      indexURL = DatabaseHandler.loadDataBase( INDEXFILE);
       System.out.println("finished reading from database");
 
     } catch (InterruptedException e) {
@@ -469,8 +659,8 @@ class HandleRequest extends Thread {
     HashMap<String, HashSet<String>> indexURL = new HashMap<>();
     HashMap[] database_changes_and_references_to_index = new HashMap[2];
     try {
-      refereceURL = DatabaseHandler.loadDataBase(refereceURL, REFERENCEFILE);
-      indexURL = DatabaseHandler.loadDataBase(indexURL, INDEXFILE);
+      refereceURL = DatabaseHandler.loadDataBase( REFERENCEFILE);
+      indexURL = DatabaseHandler.loadDataBase( INDEXFILE);
 
     } catch (InterruptedException e) {
       e.printStackTrace();
@@ -643,7 +833,7 @@ class DatabaseHandler extends Thread {
       users_list = (ArrayList) ois.readObject();
       return users_list;
     } catch (FileNotFoundException ex) {
-      System.out.println("Rip");
+      return new ArrayList<User>();
     } catch (IOException e) {
       e.printStackTrace();
     } catch (ClassNotFoundException e) {
@@ -652,11 +842,12 @@ class DatabaseHandler extends Thread {
     return users_list;
   }
 
-  public static synchronized HashMap<String, HashSet<String>> loadDataBase(HashMap map, String file)
+  public static synchronized HashMap<String, HashSet<String>> loadDataBase(String file)
       throws InterruptedException {
     File f_ref = new File(file);
     FileInputStream fis;
     ObjectInputStream ois;
+    HashMap map;
     try {
       fis = new FileInputStream(f_ref);
       ois = new ObjectInputStream(fis);
