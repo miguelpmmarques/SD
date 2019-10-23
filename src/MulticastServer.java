@@ -17,6 +17,7 @@ import java.util.*;
 import java.util.concurrent.Semaphore;
 import java.util.function.ToIntFunction;
 import java.util.Queue;
+import java.util.stream.Collectors;
 
 import static java.util.stream.Collectors.toMap;
 
@@ -430,27 +431,24 @@ class HandleRequest extends Thread {
 
         // sorting by number of references to a new hashmap
         // -------------------------------------------------------------------------------------
-        /*HashMap<String, Integer> sorted =
-            urls_to_send.entrySet().stream()
-                .sorted(Collections.reverseOrder(Map.Entry.comparingByValue()))
-                .collect(
-                    toMap(Map.Entry::getKey, Map.Entry::getValue, (e1, e2) -> e2, HashMap::new));*/
-        //System.out.println(urls_to_send.entrySet().);
-        ArrayList<String> ole = new ArrayList<>();
-        //ole.
-        // -------------------------------------------------------------------------------------------------------------------------
-        //System.out.println("SORTED=="+ sorted);
-        //aux_array.addAll(urls_to_send.entrySet().toArray());
-        // might have to save the user who made the request later;
 
+
+        HashMap<String, Integer> sorted =
+                urls_to_send.entrySet().stream().
+                        sorted(new ReferencesComparator()).
+                        collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue,
+                                (e1, e2) -> e1, LinkedHashMap::new));
+        // -------------------------------------------------------------------------------------------------------------------------
+        System.out.println("SORTED=="+ sorted);
+        aux_array.add(sorted);
       } else {
         aux_array.add(new HashMap<>());
       }
     }
-    //ordered_urls_to_send = checkRepeatedWords(aux_array);
-    //System.out.println("ORDERED ARRAY TO SEND= " + Arrays.toString(ordered_urls_to_send));
-    //return ordered_urls_to_send;
-    return new Object[2];
+    ordered_urls_to_send = checkRepeatedWords(aux_array);
+    System.out.println("ORDERED ARRAY TO SEND= " + Arrays.toString(ordered_urls_to_send));
+    return ordered_urls_to_send;
+
   }
 
   private Object[] checkRepeatedWords(ArrayList<HashMap<String, Integer>> aux_array) {
@@ -518,14 +516,6 @@ class HandleRequest extends Thread {
     }
     return database_changes_and_references_to_index;
   }
-  // possibly deprecated
-  /*private static void runtMapUsers(ArrayList myList, ArrayList arrayFile) {
-  Iterator it = arrayFile.iterator();
-  while (it.hasNext()) {
-   myList.add(it.next());
-   it.remove(); // avoids a ConcurrentModificationException
-  }
-  }*/
 
   private static HashMap<String, HashSet<String>> indexURLreferences(
       Elements links, String inputWebsite, HashMap refereceURL) {
@@ -745,13 +735,13 @@ class ComunicationUrlsQueueRequestHandler {
   }
 }
 
-/*class ReferencesComparator implements Comparator<HashMap<String, Integer>>{
-  public int compare(HashMap<String, Integer> s1,HashMap<String, Integer> s2){
-    if(s1.equals(s2))
+class ReferencesComparator implements Comparator<Map.Entry<String, Integer>>{
+  public int compare(Map.Entry<String, Integer> s1,Map.Entry<String, Integer> s2){
+    if(s1.getValue().equals(s2.getValue()))
       return 0;
-    else if(s1>s2)
+    else if(s1.getValue()<s2.getValue())
       return 1;
     else
       return -1;
   }
-}*/
+}
