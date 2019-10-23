@@ -35,6 +35,7 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
     // CLIENT RMI METHODS ----------------------------------------------------------------------------------------------
     public void notification(String sms) throws RemoteException{
         System.out.println(sms);
+        thisUser.setIsAdmin();
     }
     // PRIVATE METHODS ------------------------------------------------------------------------------------------
     private void pressToContinue() throws IOException {
@@ -86,6 +87,10 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
     }
     // Translate RMI answers
     private HashMap<String,String> protocolReaderRMISide(String sms){
+        if(sms.equals("SERVERS ARE OFFLINE")){
+            System.out.println("MULTICAST SERVERS ARE OFFLINE, TRY AGAIN LATER");
+            System.exit(0);
+        }
         HashMap<String,String> myDic = new HashMap();
         String[] splitedsms = sms.split("\\;");
         for (int i =0;i<splitedsms.length;i++){
@@ -111,9 +116,11 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
                     myDic = protocolReaderRMISide(this.ucBusca.userLogin((User)parameter));
 
                     if(myDic.get("status").equals("logged on")){
+                        this.thisUser = new User(((User) parameter).username,((User) parameter).password,this);
                         System.out.println("YOU JUST LOGGED ON");
                         this.mainMenu();
                     } else if(myDic.get("status").equals("logged admin")){
+                        this.thisUser = new User(((User) parameter).username,((User) parameter).password,this);
                         System.out.println("YOU JUST LOGGED ON AS ADMIN");
                         this.adminMenu();
                     }
@@ -157,14 +164,15 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
                 case rmiRELATEDPAGES:
                     protocolReaderRMISide(this.ucBusca.getReferencePages((String) parameter));
                     pressToContinue();
-                    break;
+                    return;
                 case rmiHISTORY:
                     protocolReaderRMISide(this.ucBusca.getHistory((User)parameter));
                     pressToContinue();
                     break;
                 case rmiCHANGEUSERPRIVILEGES:
-                    System.out.println(this.ucBusca.changeUserPrivileges((String) parameter));
-                    break;
+                    myDic = protocolReaderRMISide(this.ucBusca.changeUserPrivileges((String) parameter));
+                    System.out.println(myDic.get("status"));
+                    return;
                 default:
                     break;
             }
@@ -185,8 +193,7 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
     private void doLogin() throws RemoteException, InterruptedException, NotBoundException {
         String username = this.readInputMessages("Username");
         String password1 = this.readInputMessages("Passwork");
-        this.thisUser = new User(username,password1,this);
-        retry(rmiLOGIN,this.thisUser,REPLYCOUNTER);
+        retry(rmiLOGIN,new User(username,password1,this),REPLYCOUNTER);
     }
     private void doRegistration() throws RemoteException, InterruptedException, NotBoundException {
         String username = this.readInputMessages("Username");
@@ -212,6 +219,11 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
     // MENUS ----------------------------------------------------------------------------------------------------
     private void manageUsersMenu() throws IOException, InterruptedException, NotBoundException {
         while (true){
+            if (thisUser.getIsAdmin()){
+                this.adminMenu();
+                return;
+            }
+
             System.out.print(VIEWPLAYERSMENU);
             intKeyboardInput=getIntProtected();
             switch (intKeyboardInput){
@@ -219,8 +231,7 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
                     retry(rmiUSERSLIST,null,REPLYCOUNTER);
                     break;
                 case 2:
-                    String username2 = this.writeURL();
-                    retry(rmiCHANGEUSERPRIVILEGES,username2,REPLYCOUNTER);
+                    retry(rmiCHANGEUSERPRIVILEGES,this.readInputMessages("Name User"),REPLYCOUNTER);
                     break;
                 case 3:
                     return;
@@ -234,6 +245,7 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
         while (true){
             System.out.print(ADMIMENU);
             intKeyboardInput=getIntProtected();
+            System.out.println("cagou na puta do numero");
             switch (intKeyboardInput){
                 case 1:
                     this.manageUsersMenu();
@@ -334,14 +346,3 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
     }
 }
 
-
-/* ITERATOR THAT CAN BE USED LATER
-                    ArrayList<User> listUsers = this.ucBusca.listActiveUsers();
-                    Iterator it = listUsers.iterator();
-                    while (it.hasNext()) {
-                        User move = (User)it.next();
-                        // Um if para verificar e indicar se e Admin ou nao
-                        System.out.println("[Name] "+move.name+"   [Username] "+move.username);
-                        it.remove(); // avoids a ConcurrentModificationException
-                    }
-   */

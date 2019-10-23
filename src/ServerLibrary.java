@@ -9,7 +9,7 @@ public interface ServerLibrary extends Remote {
     public String searchWords(String[] words) throws RemoteException;
     public int checkMe() throws RemoteException;
     public String sendSystemInfo() throws RemoteException;
-    public void addURLbyADMIN(String url) throws RemoteException;
+    public String addURLbyADMIN(String url) throws RemoteException;
     public String getAllUsers() throws RemoteException;
     public String getReferencePages(String url) throws RemoteException;
     public String getHistory(User thisUser) throws RemoteException;

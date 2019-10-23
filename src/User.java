@@ -24,6 +24,10 @@ public class User implements Serializable {
         // subject to change
         return this.password;
     }
+    public void setThis(ClientLibrary client){
+        this.client = client;
+    }
+
     public ClientLibrary getClient(){
         return this.client;
     }
@@ -31,6 +35,6 @@ public class User implements Serializable {
         return this.isAdmin;
     }
     public Boolean getNotify() { return this.notify; }
-    public void setIsAdmin(Boolean decision) { this.isAdmin = true;}
+    public void setIsAdmin() { this.isAdmin = true;}
     public void setNotify(Boolean decision) { this.notify = decision;}
 }
