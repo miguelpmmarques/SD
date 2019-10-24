@@ -10,11 +10,11 @@ import java.util.*;
 public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrary {
     private int numberRequest = 0;
     private ArrayList<User> listLogedUsers = new ArrayList<>();
-    private String MULTICAST_ADDRESS = "224.0.224.0";
+    private String MULTICAST_ADDRESS = "224.0.224.3";
     private Comunication comunication;
 
     // COMUNICACAO COM O MULTICAST (Enviar)
-    private int PORTsend = 4321;
+    private int PORTsend = 6969;
     MulticastSocket socketSend;
 
     public SearchRMIServer(Comunication comunication, int numberRequest) throws RemoteException {
@@ -164,6 +164,7 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
     public String sendSystemInfo() throws RemoteException{
         String requestToMulticast ="id|"+this.numberRequest+";type|requestSYSinfo";
         String answer = sendToMulticast(requestToMulticast,this.numberRequest);
+
         this.numberRequest++;
         return "Not Done Yet";
     }
@@ -214,9 +215,9 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
     }
 }
 class MulticastThread extends Thread {
-    private String MULTICAST_ADDRESS = "224.0.224.0";
-    private int PORT = 4322;
-    private int PORTsend = 4321;
+    private String MULTICAST_ADDRESS = "224.0.224.3";
+    private int PORT = 9696;
+    private int PORTsend = 6969;
     Comunication comunication;
 
     public MulticastThread(Comunication comunication){
@@ -234,15 +235,12 @@ class MulticastThread extends Thread {
             while (true) {
                 byte[] buffer = new byte[1000];
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
-                System.out.println("está aqui");
                 aSocket.receive(packet);
-                System.out.println("RECEBEU ESTA MERDA ONDE JA RECEBIA "+new String(packet.getData(),0,packet.getLength()));
                 requestId  = this.comunication.sendAnswerToRMI(new String(packet.getData(),0,packet.getLength()));
                 String message = "ACK|"+requestId+";";
                 buffer = message.getBytes();
                 packet = new DatagramPacket(buffer, buffer.length, group, PORTsend);
                 aSocket.send(packet);
-                //aSocket.close();
             }
         } catch (SocketException e) {
             System.out.println("Socket: " + e.getMessage());
@@ -289,7 +287,6 @@ class Comunication {
         int requestId = Integer.parseInt(aux.split("\\|")[1]);
         System.out.println("NOTIFICOU");
         notify();
-
         return requestId;
     }
 }
