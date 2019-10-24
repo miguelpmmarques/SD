@@ -101,9 +101,14 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
     }
     private void printArray(String name,HashMap myDic){
         int arraySize = Integer.parseInt((String)myDic.get(name+"_count"));
-        System.out.println(arraySize);
         for(int i =1 ;i<arraySize+1;i++){
             System.out.println((String)myDic.get(name+"_"+i));
+        }
+    }
+    private void printURLS(HashMap myDic){
+        int arraySize = Integer.parseInt((String)myDic.get("url_count"));
+        for(int i =1 ;i<arraySize+1;i++){
+            System.out.println(i+"---> "+(String)myDic.get("url_"+i));
         }
     }
     // SERVER RMI METHODS ------------------------------------------------------------------------------------------
@@ -114,7 +119,6 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
             switch (rmiMethod){
                 case rmiLOGIN:
                     myDic = protocolReaderRMISide(this.ucBusca.userLogin((User)parameter));
-
                     if(myDic.get("status").equals("logged on")){
                         this.thisUser = new User(((User) parameter).username,((User) parameter).password,this);
                         System.out.println("YOU JUST LOGGED ON");
@@ -145,15 +149,16 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
 
                     break;
                 case rmiSEARCH:
-                    String searchOutput = this.ucBusca.searchWords((String[]) parameter);
-                    System.out.println(" --- Resultados de pesquisa ---\n\n"+searchOutput);
+                    myDic = protocolReaderRMISide(this.ucBusca.searchWords((String[]) parameter));
+                    System.out.println(" --- Resultados de pesquisa ---\n\n");
+                    printURLS(myDic);
                     pressToContinue();
                     break;
                 case rmiADDURL:
                     this.ucBusca.addURLbyADMIN((String) parameter);
                     break;
                 case rmiGETSYSTEMINFO:
-                    protocolReaderRMISide(this.ucBusca.sendSystemInfo());
+                    System.out.println(protocolReaderRMISide(this.ucBusca.sendSystemInfo()));
                     pressToContinue();
                     break;
                 case rmiUSERSLIST:
@@ -162,13 +167,13 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
                     pressToContinue();
                     break;
                 case rmiRELATEDPAGES:
-                    protocolReaderRMISide(this.ucBusca.getReferencePages((String) parameter));
+                    myDic = protocolReaderRMISide(this.ucBusca.getReferencePages((String) parameter));
+                    printArray("url",myDic);
                     pressToContinue();
                     return;
                 case rmiHISTORY:
                     myDic = protocolReaderRMISide(this.ucBusca.getHistory((User)parameter));
-                    printArray("url",myDic);
-                    System.out.println(myDic);
+                    printArray("word",myDic);
                     pressToContinue();
                     break;
                 case rmiCHANGEUSERPRIVILEGES:

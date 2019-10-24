@@ -54,7 +54,8 @@ public class FilesNamesObject {
         } catch (FileNotFoundException ex) {
             System.out.println("Rip");
         } catch (IOException e) {
-            System.out.println("IO");
+            System.out.println("IO -FILE- "+file_name);
+
             e.printStackTrace();
         } catch (ClassNotFoundException e) {
             System.out.println("Class not found");

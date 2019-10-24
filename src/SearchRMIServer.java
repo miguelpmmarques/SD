@@ -50,7 +50,7 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
             }
             messageFromMulticast = comunication.receiveAnswer();
             System.out.println("---------> "+messageFromMulticast);
-            if (MAXNUMBEROFTIMEOUTS == 30){
+            if (MAXNUMBEROFTIMEOUTS == 7){
                 return "SERVERS ARE OFFLINE";
             }
             MAXNUMBEROFTIMEOUTS++;
@@ -75,9 +75,8 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
 
         return answer;   //Um ifzinho para verificar se o username esta livre
     }
-    public String userLogin(User newUser) throws RemoteException, InterruptedException { // DONE
-        //Thread.sleep(5000);
-        String requestToMulticast =  "id|"+this.numberRequest+";type|requestUSERLogin;" + "user|"+newUser.username+";" + "pass|"+newUser.password+"";
+    public String userLogin(User newUser) throws RemoteException { // DONE
+        String requestToMulticast =  "type|requestUSERLogin;" + "user|"+newUser.username+";" + "pass|"+newUser.password+"";
         System.out.println("[USER LOG IN] - "+requestToMulticast);
         String answer = sendToMulticast(requestToMulticast,this.numberRequest);
         char aux = answer.charAt(answer.length()-1);
@@ -94,7 +93,6 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
 
     public String getHistory(User thisUser) throws RemoteException{
         String requestToMulticast ="id|"+this.numberRequest+";type|requestUSERhistory;" + "user|"+thisUser.username;
-        System.out.println(requestToMulticast);
         String answer = sendToMulticast(requestToMulticast,this.numberRequest);
         this.numberRequest++;
         return answer;
@@ -164,9 +162,9 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
     public String sendSystemInfo() throws RemoteException{
         String requestToMulticast ="id|"+this.numberRequest+";type|requestSYSinfo";
         String answer = sendToMulticast(requestToMulticast,this.numberRequest);
-
+        System.out.println(answer);
         this.numberRequest++;
-        return "Not Done Yet";
+        return answer;
     }
     //CHECK MAIN SERVER FUNCIONALITY
     public int checkMe() throws RemoteException{
@@ -227,6 +225,7 @@ class MulticastThread extends Thread {
 
     public void run() {
         MulticastSocket aSocket = null;
+        String getSms;
         int requestId;
         try {
             aSocket = new MulticastSocket(PORT);
@@ -236,7 +235,8 @@ class MulticastThread extends Thread {
                 byte[] buffer = new byte[1000];
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                 aSocket.receive(packet);
-                requestId  = this.comunication.sendAnswerToRMI(new String(packet.getData(),0,packet.getLength()));
+                getSms = new String(packet.getData(),0,packet.getLength());
+                requestId  = this.comunication.sendAnswerToRMI(getSms);
                 String message = "ACK|"+requestId+";";
                 buffer = message.getBytes();
                 packet = new DatagramPacket(buffer, buffer.length, group, PORTsend);
@@ -261,7 +261,7 @@ class Comunication {
 
         while (!sendToTCPclient)
             try {
-                wait(2000);
+                wait(5000);
 
                 if (!sendToTCPclient){
                     System.out.println("[TIME OUT]");
