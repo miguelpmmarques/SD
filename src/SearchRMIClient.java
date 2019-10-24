@@ -26,7 +26,7 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
     private Scanner keyboard;
     private int intKeyboardInput;
     private BufferedReader keyboardStrings = new BufferedReader(new InputStreamReader(System.in));
-    private User thisUser;
+    private User thisUser = null;
 
     private SearchRMIClient(ServerLibrary ucBusca) throws RemoteException {
         super();
@@ -166,7 +166,9 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
                     pressToContinue();
                     return;
                 case rmiHISTORY:
-                    protocolReaderRMISide(this.ucBusca.getHistory((User)parameter));
+                    myDic = protocolReaderRMISide(this.ucBusca.getHistory((User)parameter));
+                    printArray("url",myDic);
+                    System.out.println(myDic);
                     pressToContinue();
                     break;
                 case rmiCHANGEUSERPRIVILEGES:
@@ -211,6 +213,12 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
     // Method where the user inserts the words he wants to research
     private void doSearch() throws RemoteException, InterruptedException, NotBoundException {
         String searchWords = this.readInputMessages("Search");
+        if (this.thisUser==null){
+            searchWords = "Anonymous "+searchWords;
+        }
+        else {
+            searchWords = thisUser.username+" "+searchWords;
+        }
         String[] searchWordsSplited = searchWords.split("\\s+");
         retry(rmiSEARCH,searchWordsSplited,REPLYCOUNTER);
 

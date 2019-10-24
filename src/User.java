@@ -1,4 +1,5 @@
 import java.io.*;
+import java.util.ArrayList;
 
 public class User implements Serializable {
     //Mudar depois
@@ -7,6 +8,7 @@ public class User implements Serializable {
     public ClientLibrary client;
     public boolean isAdmin = false;
     public boolean notify = false;
+    public ArrayList<String> userHistory = new ArrayList<>();
     public User(String username,String password) {
         this.username = username;
         this.password = password;
@@ -27,7 +29,12 @@ public class User implements Serializable {
     public void setThis(ClientLibrary client){
         this.client = client;
     }
-
+    public void addSearchToHistory(String words){
+        userHistory.add(words);
+    }
+    public ArrayList<String> getSearchToHistory(){
+        return userHistory;
+    }
     public ClientLibrary getClient(){
         return this.client;
     }

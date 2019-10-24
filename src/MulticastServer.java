@@ -1,46 +1,196 @@
 import java.io.IOException;
-import java.net.DatagramPacket;
-import java.net.InetAddress;
-import java.net.MulticastSocket;
+import java.net.*;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
-import javax.swing.*;
 import java.io.*;
-import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
-import java.sql.Array;
 import java.util.*;
-import java.util.concurrent.Semaphore;
-import java.util.function.ToIntFunction;
-import java.util.Queue;
 import java.util.stream.Collectors;
 
 import static java.util.stream.Collectors.toMap;
+//TCP CLASSES
+// CLIENT ---------------------------------------------------------------------
+class TCP_CLIENT implements Runnable {
+  Thread t;
+  int tcpServerPort;
+  MessageByTCP messageToBeSent;
+
+  public TCP_CLIENT(int tcpServerPort,MessageByTCP messageToBeSent) {
+    this.messageToBeSent = messageToBeSent;
+    this.tcpServerPort = tcpServerPort;
+    t = new Thread(this);
+    t.start();
+  }
+  public void run() {
+    Socket s = null;
+    try {
+      s = new Socket("0.0.0.0", this.tcpServerPort);
+      System.out.println("SOCKET=" + s);
+      ObjectOutputStream objectOutput = new ObjectOutputStream(s.getOutputStream());
+      objectOutput.reset();
+      objectOutput.writeObject(this.messageToBeSent);
+      System.out.println("[CLIENT SOCKET] - Sent Info to "+ this.tcpServerPort);
+      s.close();
+      return;
+    } catch (UnknownHostException e) {
+      System.out.println("Sock:" + e.getMessage());
+    } catch (IOException e) {
+      System.out.println("IO:" + e.getMessage());
+    } finally {
+      if (s != null)
+        try {
+          s.close();
+        } catch (IOException e) {
+          System.out.println("close:" + e.getMessage());
+        }
+      System.out.println("[CLIENT SOCKET] - Dead");
+    }
+
+
+  }
+}
+
+// SERVER---------------------------------------------------------------------
+class TCP_SERVER implements Runnable {
+
+  private Thread serverThread;
+  private ServerSocket s;
+  private int serversocketPort;
+
+  public TCP_SERVER(int serversocketPort) {
+    this.serverThread = new Thread(this);
+    this.serversocketPort = serversocketPort;
+  }
+  public void startTCPServer(){
+    serverThread.start();
+  }
+  public void run() {
+    while (true) {
+      Socket clientSocket = null;
+      try {
+        clientSocket = this.s.accept();
+      } catch (IOException e) {
+        e.printStackTrace();
+        System.out.println("CLIENT OFFLINE");
+      }
+      System.out.println("CLIENT_SOCKET (created at accept())=" + clientSocket);
+
+      new Connection(clientSocket,serversocketPort);
+    }
+  }
+  public int tryConnection(){
+
+    try {
+      this.s = new ServerSocket(this.serversocketPort );
+      System.out.println("LISTEN SOCKET=" + s);
+    } catch (IOException e) {
+      System.out.println("Port Occupied");
+      ++this.serversocketPort;
+      tryConnection();
+    }
+    return this.serversocketPort;
+  }
+}
+class Connection extends Thread {
+  DataInputStream in;
+  DataOutputStream out;
+  ObjectInputStream objectInput;
+  Socket clientSocket;
+  FilesNamesObject filesManager;
+  public Connection(Socket aClientSocket, int serversocketPort) {
+    try {
+      filesManager = new FilesNamesObject(serversocketPort);
+      clientSocket = aClientSocket;
+      in = new DataInputStream(clientSocket.getInputStream());
+      objectInput = new ObjectInputStream(clientSocket.getInputStream());
+
+
+      this.start();
+    } catch (IOException e) {
+      System.out.println("Connection:" + e.getMessage());
+    }
+  }
+
+  //=============================
+  public void run() {
+    MessageByTCP object = null;
+      try {
+        object = (MessageByTCP)objectInput.readObject();
+        filesManager.saveUsersToDataBase(object.users_list);
+        filesManager.saveHashSetsToDataBase("INDEX",object.indexURL);
+        filesManager.saveHashSetsToDataBase("REFERENCE",object.refereceURL);
+      } catch (EOFException e) {
+        System.out.println("Client Loggeg out");
+      } catch (IOException e) {
+        System.out.println("IO:" + e);
+        System.out.println("Client Loggeg out");
+      } catch (ClassNotFoundException e) {
+        e.printStackTrace();
+        System.out.println("Client Loggeg out");
+    } finally {
+        return;
+      }
+  }
+}
+
+
+
 
 // thread responsible for listening in on multicast requests
 public class MulticastServer extends Thread {
-  private String MULTICAST_ADDRESS = "224.0.224.0";
-  private int PORT = 4321;
+  private String MULTICAST_ADDRESS = "224.0.224.3";
+  private int PORT = 6969;
   protected Queue<String> urls_queue = new LinkedList<>();
   protected QueueProcessor processQueue = null;
   protected ComunicationUrlsQueueRequestHandler com = new ComunicationUrlsQueueRequestHandler();
+  private int myIdByTCP;
   HashMap responsesTable;
-
+  FilesNamesObject filesManager;
   public static void main(String[] args) {
-    MulticastServer server = new MulticastServer("0");
+    TCP_SERVER serverTCP = new TCP_SERVER(1999);
+    int portId = serverTCP.tryConnection();
+
+    FilesNamesObject filesManager = new FilesNamesObject(portId);
+    System.out.println("Multicast Id -> "+portId);
+    serverTCP.startTCPServer();
+    MulticastServer server = new MulticastServer(portId,filesManager);
     server.start();
   }
 
-  public MulticastServer(String id) {
+  private void notifyALLbyMulticast(){
+
+    MulticastSocket socket = null;
+
+    System.out.println(this.getName() + " ready...");
+    String message = "type|MulticatImAlive;myid|"+myIdByTCP;
+    try {
+      socket = new MulticastSocket(); // create socket without binding it (only for sending)
+      byte[] buffer = message.getBytes();
+      InetAddress group = InetAddress.getByName(MULTICAST_ADDRESS);
+      DatagramPacket packet = new DatagramPacket(buffer, buffer.length, group, PORT);
+      System.out.println("NOTIFICATION SENT");
+      socket.send(packet);
+    } catch (IOException e) {
+      e.printStackTrace();
+    } finally {
+      socket.close();
+    }
+  }
+
+  public MulticastServer(int id,FilesNamesObject filesManager) {
     super("server-" + id);
+    this.filesManager = filesManager;
+    this.myIdByTCP = id;
+    notifyALLbyMulticast();
   }
 
   public void run() {
-    processQueue = new QueueProcessor(this, "", com,responsesTable);    processQueue.start();
+    processQueue = new QueueProcessor(this, "", com,responsesTable,filesManager);
+    processQueue.start();
 
     listenMulticast();
     // have to check message parameter later
@@ -75,7 +225,7 @@ public class MulticastServer extends Thread {
                 + received_packet.getPort());*/
         String message = new String(received_packet.getData(), 0, received_packet.getLength());
         if (!message.equals("ACK")) {
-          HandleRequest handle = new HandleRequest(this, message, com,responsesTable);
+          HandleRequest handle = new HandleRequest(this, message, com,responsesTable,filesManager);
           handle.start();
         }
       }
@@ -90,8 +240,8 @@ public class MulticastServer extends Thread {
 }
 
 class QueueProcessor extends HandleRequest {
-  public QueueProcessor(MulticastServer parent_thread, String message, ComunicationUrlsQueueRequestHandler com,HashMap responsesTable) {
-    super(parent_thread, message, com,responsesTable);
+  public QueueProcessor(MulticastServer parent_thread, String message, ComunicationUrlsQueueRequestHandler com,HashMap responsesTable,FilesNamesObject filesManager) {
+    super(parent_thread, message, com,responsesTable,filesManager);
     this.setName("Queue Processor-" + this.getId());
     System.out.println("URLS PROCESSING THREAD HERE!");
   }
@@ -147,27 +297,28 @@ class QueueProcessor extends HandleRequest {
 }
 
 class HandleRequest extends Thread {
-  static final String INDEXFILE = "indexURL.tmp";
-  static final String REFERENCEFILE = "referenceURL.tmp";
-  static final String USERS_FILE = "users.tmp";
-  private String MULTICAST_ADDRESS = "224.0.224.0";
+  private String MULTICAST_ADDRESS = "224.0.224.3";
   private String request;
   protected Queue<String> urls_queue;
   HashMap responsesTable;
   ComunicationUrlsQueueRequestHandler com;
+  FilesNamesObject filesManager;
 
-  public HandleRequest(MulticastServer parent_thread, String message, ComunicationUrlsQueueRequestHandler com,HashMap responsesTable) {
+  public HandleRequest(MulticastServer parent_thread, String message, ComunicationUrlsQueueRequestHandler com,HashMap responsesTable,FilesNamesObject filesManager) {
     super();
     this.setName("Handler-" + this.getId());
     this.com = com;
     this.request = message;
     this.responsesTable=responsesTable;
     this.urls_queue = parent_thread.getUrlsQueue();
+    this.filesManager = filesManager;
+
     System.out.println(this);
     System.out.println(this.urls_queue);
   }
 
   public void run() {
+
     System.out.println("I'm " + this.getName());
     // String message_to_send_to_rmi=protocolReaderMulticastSide(this.request);
     String messageToRMI = null;
@@ -179,7 +330,8 @@ class HandleRequest extends Thread {
     if (messageToRMI.equals(""))
       return;
     System.out.println(messageToRMI);
-    sendMulticastMessage(messageToRMI);*/
+    sendMulticastMessage(messageToRMI);
+    */
     try {
       interpretRequest();
     } catch (InterruptedException e) {
@@ -191,7 +343,7 @@ class HandleRequest extends Thread {
   }
 
   public void sendMulticastMessage(String message) {
-    int ack_port = 4322;
+    int ack_port = 9696;
     MulticastSocket socket = null;
 
     System.out.println(this.getName() + " ready...");
@@ -211,41 +363,79 @@ class HandleRequest extends Thread {
 
   private String protocolReaderMulticastSide(String sms) throws InterruptedException {
     String[] splitedsms = sms.split("\\;");
+    DatabaseHandler bd;
+    ArrayList<User> users;
     String messageToRMI = "";
     HashMap<String,String> myDic = new HashMap<>();
     for (int i =0;i<splitedsms.length;i++){
       String[] splitedsplitedsms = splitedsms[i].split("\\|");
-
       System.out.println(splitedsms[i]);
       myDic.put(splitedsplitedsms[0],splitedsplitedsms[1]);
     }
-    System.out.println("QUEUE DE RESPOSTAS -> "+responsesTable);
+
     if(myDic.get("ACK") != null){
       responsesTable.remove(myDic.get("ACK"));
       System.out.println("QUEUE DE RESPOSTAS AFTER ACK -> "+responsesTable);
       return "";
     }
-    if (responsesTable.get(myDic.get("id"))!=null ){
-      System.out.println("NAO FOI A BASE DE DADOS");
+    if (myDic.get("type").equals("MulticatImAlive")){
+      System.out.println("OH SHIT MY NIGGA "+myDic.get("myid")+" IS ALIVE!");
+      filesManager.loadDataBase("REFERENCE");
+      filesManager.loadDataBase("INDEX");
+      MessageByTCP messageToTCP = new MessageByTCP(this.filesManager.loadDataBase("REFERENCE"),this.filesManager.loadDataBase("INDEX"),this.filesManager.loadUsersFromDataBase());
+      new TCP_CLIENT(Integer.parseInt(myDic.get("myid")),messageToTCP);
+
+    }
+
+      if (responsesTable.get(myDic.get("id"))!=null ){
       return (String)responsesTable.get(myDic.get("id"));
     }
     switch ((String)myDic.get("type")) {
       case "requestURLbyWord":
-        return "id|"+(String)myDic.get("id")+";type|responseURLbyWord;status|logged on";
+        users = filesManager.loadUsersFromDataBase();
+        for (int i = 0; i < users.size(); i++) {
+          if (users.get(i).username.equals((String)myDic.get("user")) )
+          {
+            users.get(i).addSearchToHistory(returnString("word", myDic));
+            bd = new DatabaseHandler(users,filesManager);
+            bd.start();
+          }
+        }
+        return "id|"+(String)myDic.get("id")+";type|responseURLbyWord"; //AINDA NAO ESTA FEITO, APENAS ESTA A GUARDAR O HISTORICO
+
 
       case "requestURLbyRef":
-        break;
+
+        return "id|"+(String)myDic.get("id")+";type|responseURLbyRef"; //AINDA NAO ESTA FEITO, APENAS ESTA A GUARDAR O HISTORICO
       case "requestUSERhistory":
-        break;
-      case "requestUSERLogin":
-        ArrayList<User> usersL = DatabaseHandler.loadUsersFromDataBase();
-        System.out.println("SIZE USERS - "+usersL.size());
-        for (int i = 0; i < usersL.size(); i++) {
-          if (usersL.get(i).username.equals((String)myDic.get("user")) && usersL.get(i).password.equals((String)myDic.get("pass")))
+        User myUser;
+        String message2send;
+        ArrayList<String> myUserHistory;
+        users = filesManager.loadUsersFromDataBase();
+        for (int i = 0; i < users.size(); i++) {
+          if (users.get(i).username.equals((String)myDic.get("user")) )
           {
-            if (usersL.get(i).getIsAdmin()){
-              if (usersL.get(i).getNotify()){
-                usersL.get(i).setNotify(false);
+            myUser = users.get(i);
+            myUserHistory = myUser.getSearchToHistory();
+            message2send = "url_count|"+myUserHistory.size()+";";
+            for (int j = 0; j < myUserHistory.size(); j++) {
+              message2send += "url_"+(j+1)+"|"+myUserHistory.get(j)+";";
+
+            }
+            return "id|"+(String)myDic.get("id")+";type|responsetUSERhistory;"+message2send;
+          }
+        }
+
+
+        return "id|"+(String)myDic.get("id")+";type|responsetUSERhistory;";
+      case "requestUSERLogin":
+        users = filesManager.loadUsersFromDataBase();
+        for (int i = 0; i < users.size(); i++) {
+          if (users.get(i).username.equals((String)myDic.get("user")) && users.get(i).password.equals((String)myDic.get("pass")))
+          {
+            if (users.get(i).getIsAdmin()){
+              if (users.get(i).getNotify()){
+                users.get(i).setNotify(false);
                 responsesTable.put(myDic.get("id"),"id|"+(String)myDic.get("id")+";type|responseUSERLogin;status|logged admin;Notify|true");
                 return "id|"+(String)myDic.get("id")+";type|responseUSERLogin;status|logged admin;Notify|true";
 
@@ -260,42 +450,37 @@ class HandleRequest extends Thread {
 
         return "id|"+(String)myDic.get("id")+";type|responseUSERLogin;status|logged off;";
       case "requestUSERRegist":
-        ArrayList<User> usersR = DatabaseHandler.loadUsersFromDataBase();
-        System.out.println("SIZE USERS - "+usersR.size());
-        if (usersR.isEmpty()){
+        users = filesManager.loadUsersFromDataBase();
+        if (users.isEmpty()){
           User adminUser = new User((String)myDic.get("user"),(String)myDic.get("pass"));
           adminUser.setIsAdmin();
-          usersR.add(adminUser);
+          users.add(adminUser);
 
-          DatabaseHandler bd = new DatabaseHandler(usersR);
+          bd = new DatabaseHandler(users,filesManager);
           bd.start();
           responsesTable.put(myDic.get("id"),"id|"+(String)myDic.get("id")+";type|responseUSERRegist;status|Admin");
           return "id|"+(String)myDic.get("id")+";type|responseUSERRegist;status|Admin";
         }
-        for (int i = 0; i < usersR.size(); i++) {
-          System.out.println(usersR.get(i));
-          if (usersR.get(i).username.equals((String)myDic.get("user")))
+        for (int i = 0; i < users.size(); i++) {
+          if (users.get(i).username.equals((String)myDic.get("user")))
           {
             responsesTable.put(myDic.get("id"),"id|"+(String)myDic.get("id")+";type|responseUSERRegist;status|Failled");
             return "id|"+(String)myDic.get("id")+";type|responseUSERRegist;status|Failled";
           }
         }
-        usersR.add(new User((String)myDic.get("user"),(String)myDic.get("pass")));
-        System.out.println("SIZE USERS AFTER REGIST - "+usersR.size());
-        DatabaseHandler bd = new DatabaseHandler(usersR);
+        users.add(new User((String)myDic.get("user"),(String)myDic.get("pass")));
+        bd = new DatabaseHandler(users,filesManager);
         bd.start();
         responsesTable.put(myDic.get("id"),"id|"+(String)myDic.get("id")+";type|responseUSERRegist;status|Success");
         return "id|"+(String)myDic.get("id")+";type|responseUSERRegist;status|Success";
       case "requestAllUSERSPrivileges":
-        ArrayList<User> usersS = DatabaseHandler.loadUsersFromDataBase();
-        System.out.println("SIZE USERS - "+usersS.size());
+        users = filesManager.loadUsersFromDataBase();
+        String messageToSend = "id|"+(String)myDic.get("id")+";type|responseUSERSPrivileges;user_count|"+users.size()+";";
 
-        String messageToSend = "id|"+(String)myDic.get("id")+";type|responseUSERSPrivileges;user_count|"+usersS.size()+";";
-
-        for (int i = 0; i < usersS.size(); i++)  {
+        for (int i = 0; i < users.size(); i++)  {
           // Um if para verificar e indicar se e Admin ou nao
-          messageToSend+="user_"+(i+1)+"|"+usersS.get(i).username+" -> ";
-          if(usersS.get(i).getIsAdmin()){
+          messageToSend+="user_"+(i+1)+"|"+users.get(i).username+" -> ";
+          if(users.get(i).getIsAdmin()){
             messageToSend+="Admin;";
           }
           else {
@@ -305,24 +490,24 @@ class HandleRequest extends Thread {
         responsesTable.put(myDic.get("id"),messageToSend);
         return messageToSend;
       case "requestSetNotify":
-        ArrayList<User> usersN = DatabaseHandler.loadUsersFromDataBase();
-        for (int i = 0; i < usersN.size(); i++)  {
+        users = filesManager.loadUsersFromDataBase();
+        for (int i = 0; i < users.size(); i++)  {
 
-          if (myDic.get("user").equals(usersN.get(i).username)){
-            usersN.get(i).setNotify(true);
-            DatabaseHandler bd3 = new DatabaseHandler(usersN);
-            bd3.start();
+          if (myDic.get("user").equals(users.get(i).username)){
+            users.get(i).setNotify(true);
+            bd = new DatabaseHandler(users,filesManager);
+            bd.start();
           }
           responsesTable.put(myDic.get("id"),"id|"+(String)myDic.get("id")+";type|responseSetNotify");
           return "id|"+(String)myDic.get("id")+";type|responseSetNotify";
         }
       case "requestChangeUSERPrivileges":
-        ArrayList<User> usersP = DatabaseHandler.loadUsersFromDataBase();
-        for (int i = 0; i < usersP.size(); i++)  {
-          if (myDic.get("user").equals(usersP.get(i).username)){
-            usersP.get(i).setIsAdmin();
-            DatabaseHandler bd2 = new DatabaseHandler(usersP);
-            bd2.start();
+        users = filesManager.loadUsersFromDataBase();
+        for (int i = 0; i < users.size(); i++)  {
+          if (myDic.get("user").equals(users.get(i).username)){
+            users.get(i).setIsAdmin();
+            bd = new DatabaseHandler(users,filesManager);
+            bd.start();
             responsesTable.put(myDic.get("id"),"id|"+(String)myDic.get("id")+";type|responseaddURLbyADMIN;" + "status|New admin added with success");
             return "id|"+(String)myDic.get("id")+";type|responseaddURLbyADMIN;" + "status|New admin added with success";
           }
@@ -334,11 +519,20 @@ class HandleRequest extends Thread {
         responsesTable.put(myDic.get("id"),"id|"+(String)myDic.get("id")+";type|responseChangeUSERPrivileges;" + "status|Success");
         return "id|"+(String)myDic.get("id")+";type|responseChangeUSERPrivileges;" + "status|Success";
       case "requestSYSinfo":
+        System.out.println("BATEU AQUIIII");
         break;
       default:
-        messageToRMI = "Error in protocol type";
+        messageToRMI = "";
     }
     return messageToRMI;
+  }
+  private String returnString(String name,HashMap myDic){
+    String returnS = "";
+    int arraySize = Integer.parseInt((String)myDic.get(name+"_count"));
+    for(int i =1 ;i<arraySize+1;i++){
+      returnS+= (String)myDic.get(name+"_"+i) + " ";
+    }
+    return returnS;
   }
   /*synchronized (urls_queue) {
       System.out.println("Adding " + value + " to urls queues");
@@ -383,32 +577,49 @@ class HandleRequest extends Thread {
     } else if (type.equals("WORD")) {
       to_send_multicast_and_tcp = searchWords(values);
       //System.out.println("To send multicast =" + to_send_multicast_and_tcp.toString());
-    } else {
+    } else if(type.equals("TEN")) {
+      List<String> ole = getTenMostReferencedUrls();
+      System.out.println("HERE=" + ole);
+    }else {
       System.out.println("Unsuported Request!");
     }
     this.join();
   }
+  public List<String> getTenMostReferencedUrls(){
+    HashMap<String, HashSet<String>> refereceURL = new HashMap<>();
+    System.out.println("reading from database");
+    refereceURL = filesManager.loadDataBase("REFERENCE");
+    System.out.println("finished reading from database");
+    Set all_entrys = refereceURL.entrySet();
+    HashMap<String, Integer> new_map = new HashMap<>();
+    for(Object entry : all_entrys){
+      Map.Entry actual_entry = (Map.Entry)entry;
+      //System.out.println("Entry==" +actual_entry);
+      HashSet aux  = (HashSet) actual_entry.getValue();
+      new_map.put(String.valueOf(actual_entry.getKey()), aux.size());
+    }
+    //System.out.println("new_map=" +new_map);
+
+    HashMap<String, Integer> sorted = orderHashMapByIntegerValue(new_map);
+    System.out.println("sorted=" + sorted);
+    Set key_set = sorted.keySet();
+    //System.out.println("sorted key set=" + key_set);
+    String[] array_to_send = (String[]) key_set.toArray(new String[0]);
+    List<String> arrayList = Arrays.asList(array_to_send);
+    return arrayList.subList(0, 10);
+
+  }
 
   public Object[] searchWords(String[] words) {
-    // unnecessary-- add to search user function later
-    // ArrayList<User> users_list = new ArrayList<>();
-    // loadUsersFromDataBase(users_list);
-    // System.out.println(users_list);
-    // loading the indexes and references
     HashMap<String, HashSet<String>> refereceURL = new HashMap<>();
     HashMap<String, HashSet<String>> indexURL = new HashMap<>();
     ArrayList<HashMap<String, Integer>> aux_array = new ArrayList<>();
-    try {
-      System.out.println("reading from database");
-      refereceURL = DatabaseHandler.loadDataBase(refereceURL, REFERENCEFILE);
-      //System.out.println("finished reading from database");
-      //System.out.println("reading from database");
-      indexURL = DatabaseHandler.loadDataBase(indexURL, INDEXFILE);
-      System.out.println("finished reading from database");
 
-    } catch (InterruptedException e) {
-      e.printStackTrace();
-    }
+  System.out.println("reading from database");
+  refereceURL = this.filesManager.loadDataBase("REFERENCE");
+  indexURL = this.filesManager.loadDataBase("INDEX");
+  System.out.println("finished reading from database");
+
 
     Object[] ordered_urls_to_send;
     // getting the urls that have the requested word
@@ -428,17 +639,8 @@ class HandleRequest extends Thread {
             urls_to_send.put((String) elem, 0);
           }
         }
+        HashMap<String, Integer> sorted = orderHashMapByIntegerValue(urls_to_send);
 
-        // sorting by number of references to a new hashmap
-        // -------------------------------------------------------------------------------------
-
-
-        HashMap<String, Integer> sorted =
-                urls_to_send.entrySet().stream().
-                        sorted(new ReferencesComparator()).
-                        collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue,
-                                (e1, e2) -> e1, LinkedHashMap::new));
-        // -------------------------------------------------------------------------------------------------------------------------
         System.out.println("SORTED=="+ sorted);
         aux_array.add(sorted);
       } else {
@@ -448,9 +650,14 @@ class HandleRequest extends Thread {
     ordered_urls_to_send = checkRepeatedWords(aux_array);
     System.out.println("ORDERED ARRAY TO SEND= " + Arrays.toString(ordered_urls_to_send));
     return ordered_urls_to_send;
+  }
+  private HashMap<String, Integer> orderHashMapByIntegerValue(HashMap<String, Integer> urls_to_send){
+    return  urls_to_send.entrySet().stream().
+            sorted(new ReferencesComparator()).
+            collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue,
+                    (e1, e2) -> e1, LinkedHashMap::new));
 
   }
-
   private Object[] checkRepeatedWords(ArrayList<HashMap<String, Integer>> aux_array) {
     int size = aux_array.size();
     HashMap first_set = aux_array.get(0);
@@ -466,13 +673,9 @@ class HandleRequest extends Thread {
     HashMap<String, HashSet<String>> refereceURL = new HashMap<>();
     HashMap<String, HashSet<String>> indexURL = new HashMap<>();
     HashMap[] database_changes_and_references_to_index = new HashMap[2];
-    try {
-      refereceURL = DatabaseHandler.loadDataBase(refereceURL, REFERENCEFILE);
-      indexURL = DatabaseHandler.loadDataBase(indexURL, INDEXFILE);
+    refereceURL = this.filesManager.loadDataBase("REFERENCE");
+    indexURL = this.filesManager.loadDataBase("INDEX");
 
-    } catch (InterruptedException e) {
-      e.printStackTrace();
-    }
 
     //System.out.println("index url:" + indexURL);
     //System.out.println("reference url:" + refereceURL);
@@ -499,7 +702,7 @@ class HandleRequest extends Thread {
 
       //System.out.println("URL REFERENCE FROM " + doc.title() + "\n" + refereceURL);
       //System.out.println("WORDS FOUND IN " + doc.title() + "\n" + indexURL);
-      DatabaseHandler handler_db = new DatabaseHandler(refereceURL, indexURL);
+      DatabaseHandler handler_db = new DatabaseHandler(refereceURL, indexURL,filesManager);
       handler_db.start();
       // --------------------------------------------------------------------------HERE SAVE
       // DATABASE
@@ -516,6 +719,14 @@ class HandleRequest extends Thread {
     }
     return database_changes_and_references_to_index;
   }
+  // possibly deprecated
+  /*private static void runtMapUsers(ArrayList myList, ArrayList arrayFile) {
+  Iterator it = arrayFile.iterator();
+  while (it.hasNext()) {
+   myList.add(it.next());
+   it.remove(); // avoids a ConcurrentModificationException
+  }
+  }*/
 
   private static HashMap<String, HashSet<String>> indexURLreferences(
       Elements links, String inputWebsite, HashMap refereceURL) {
@@ -576,132 +787,40 @@ class HandleRequest extends Thread {
 }
 // Thread responsible for synchronized saving of objects to our database-- Object Files as of now
 class DatabaseHandler extends Thread {
-  static final String INDEXFILE = "indexURL.tmp";
-  static final String REFERENCEFILE = "referenceURL.tmp";
-  static final String USERS_FILE = "users.tmp";
-  private static HashMap<String, HashSet<String>> refereceURL = null;
-  private static HashMap<String, HashSet<String>> indexURL = null;
-  private static ArrayList<User> users_list = null;
+  private HashMap<String, HashSet<String>> refereceURL = null;
+  private HashMap<String, HashSet<String>> indexURL = null;
+  private ArrayList<User> users_list = null;
+  private  FilesNamesObject fileManager;
 
   // constructor for saving users
-  public DatabaseHandler(ArrayList<User> users_list) {
+  public DatabaseHandler(ArrayList<User> users_list,FilesNamesObject fileManager) {
     super();
     this.setName("DatabaseHandler-" + this.getId());
     this.users_list = users_list;
+    this.fileManager = fileManager;
   }
   // constructor for saving urls
   public DatabaseHandler(
-      HashMap<String, HashSet<String>> refereceURL, HashMap<String, HashSet<String>> indexURL) {
+      HashMap<String, HashSet<String>> refereceURL, HashMap<String, HashSet<String>> indexURL,FilesNamesObject fileManager) {
     super();
     this.setName("DatabaseHandler-" + this.getId());
     this.refereceURL = refereceURL;
     this.indexURL = indexURL;
+    this.fileManager=fileManager;
   }
   // depending on the initialization of the class, the thread may save the users or the url HashMaps
   // so far
   public void run() {
     // waiting in conditional variable until save is
     if (this.users_list == null) {
-      try {
-        //System.out.println("SAVING FILES");
-        //System.out.println("saving to database");
-        saveHashSetsToDataBase(this.INDEXFILE, this.indexURL);
-        //System.out.println("finished saving to database");
-        //System.out.println("saving to database");
-        saveHashSetsToDataBase(this.REFERENCEFILE, this.refereceURL);
-        //System.out.println("finished saving to database");
-      } catch (IOException e) {
-        e.printStackTrace();
-      }
+        this.fileManager.saveHashSetsToDataBase("INDEX",this.indexURL);
+        this.fileManager.saveHashSetsToDataBase("REFERENCE",this.refereceURL);
     } else {
-      try {
-        saveArraysToDataBase(this.USERS_FILE, this.users_list);
-      } catch (IOException e) {
-        e.printStackTrace();
-      }
+        this.fileManager.saveUsersToDataBase(this.users_list);
+
     }
   }
 
-  public static synchronized ArrayList<User> loadUsersFromDataBase() {
-    File f_users = new File(USERS_FILE);
-    FileInputStream fis;
-    ObjectInputStream ois;
-    ArrayList<User> users_list = new ArrayList<>();
-    try {
-      fis = new FileInputStream(f_users);
-      ois = new ObjectInputStream(fis);
-      users_list = (ArrayList) ois.readObject();
-      return users_list;
-    } catch (FileNotFoundException ex) {
-      System.out.println("Rip");
-    } catch (IOException e) {
-      e.printStackTrace();
-    } catch (ClassNotFoundException e) {
-      e.printStackTrace();
-    }
-    return users_list;
-  }
-
-  public static synchronized HashMap<String, HashSet<String>> loadDataBase(HashMap map, String file)
-      throws InterruptedException {
-    File f_ref = new File(file);
-    FileInputStream fis;
-    ObjectInputStream ois;
-    try {
-      fis = new FileInputStream(f_ref);
-      ois = new ObjectInputStream(fis);
-      map = (HashMap) ois.readObject();
-
-      return map;
-
-    } catch (FileNotFoundException ex) {
-      System.out.println("Rip");
-    } catch (IOException e) {
-      System.out.println("IO");
-      e.printStackTrace();
-    } catch (ClassNotFoundException e) {
-      System.out.println("Class not found");
-      e.printStackTrace();
-    }
-    return new HashMap<>();
-  }
-  // for now, only useful for saving users
-  private static synchronized void saveArraysToDataBase(String file_name, ArrayList<User> list)
-      throws IOException {
-    FileOutputStream fos = new FileOutputStream(file_name);
-    try (ObjectOutputStream oos = new ObjectOutputStream(fos)) {
-
-      oos.writeObject(users_list);
-      System.out.println("Inside Semaphore saving users");
-
-      System.out.println("GUARDADO EM FICHEIROS OBJETOS COM SUCESSO -> USERS");
-      oos.close();
-      fos.close();
-    } catch (FileNotFoundException ex) {
-      System.out.println("Ficheiro nao encontrado");
-    } catch (IOException ex) {
-      System.out.println("Erro a escrever para o ficheiro.");
-      ex.printStackTrace();
-    }
-  }
-  // so far only useful for saving url hashMaps
-  private static synchronized void saveHashSetsToDataBase(
-      String file_name, HashMap<String, HashSet<String>> map) throws IOException {
-    FileOutputStream fos = new FileOutputStream(file_name);
-    try (ObjectOutputStream oos = new ObjectOutputStream(fos)) {
-
-      oos.writeObject(map);
-      //System.out.println("Inside semaphore saving indexes or references");
-      System.out.println("GUARDADO EM FICHEIROS OBJETOS COM SUCESSO -> OLE");
-      oos.close();
-      fos.close();
-    } catch (FileNotFoundException ex) {
-      System.out.println("Ficheiro nao encontrado");
-    } catch (IOException ex) {
-      System.out.println("Erro a escrever para o ficheiro.");
-      ex.printStackTrace();
-    }
-  }
 }
 
 class ComunicationUrlsQueueRequestHandler {
@@ -734,7 +853,6 @@ class ComunicationUrlsQueueRequestHandler {
     notify();
   }
 }
-
 class ReferencesComparator implements Comparator<Map.Entry<String, Integer>>{
   public int compare(Map.Entry<String, Integer> s1,Map.Entry<String, Integer> s2){
     if(s1.getValue().equals(s2.getValue()))

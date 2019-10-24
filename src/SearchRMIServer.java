@@ -10,11 +10,11 @@ import java.util.*;
 public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrary {
     private int numberRequest = 0;
     private ArrayList<User> listLogedUsers = new ArrayList<>();
-    private String MULTICAST_ADDRESS = "224.0.224.0";
+    private String MULTICAST_ADDRESS = "224.0.224.3";
     private Comunication comunication;
 
     // COMUNICACAO COM O MULTICAST (Enviar)
-    private int PORTsend = 4321;
+    private int PORTsend = 6969;
     MulticastSocket socketSend;
 
     public SearchRMIServer(Comunication comunication, int numberRequest) throws RemoteException {
@@ -97,7 +97,7 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
         System.out.println(requestToMulticast);
         String answer = sendToMulticast(requestToMulticast,this.numberRequest);
         this.numberRequest++;
-        return "Empty";
+        return answer;
     }
     public String getReferencePages(String url) throws RemoteException{
         String requestToMulticast ="id|"+this.numberRequest+";type|requestURLbyRef;" + "URL|"+url;
@@ -143,10 +143,12 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
         return answer;
     }
     public String searchWords(String[] words) throws RemoteException{
+        System.out.println();
         String requestToMulticast ="id|"+this.numberRequest+";type|requestURLbyWord;" +
-                "word_count|"+words.length;
-        for (int i = 1; i <= words.length; i++) {
-            requestToMulticast+= "word_"+ i+"|"+words[i-1]+";";
+                "user|"+words[0]+
+                ";word_count|"+(words.length-1)+";";
+        for (int i = 1; i <= words.length-1; i++) {
+            requestToMulticast+= "word_"+ i+"|"+words[i]+";";
         }
         System.out.println("[USER SEARCH] - "+requestToMulticast);
         String answer = sendToMulticast(requestToMulticast,this.numberRequest);
@@ -162,6 +164,7 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
     public String sendSystemInfo() throws RemoteException{
         String requestToMulticast ="id|"+this.numberRequest+";type|requestSYSinfo";
         String answer = sendToMulticast(requestToMulticast,this.numberRequest);
+
         this.numberRequest++;
         return "Not Done Yet";
     }
@@ -170,12 +173,12 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
         return this.numberRequest;
     }
     // MAIN
-    public static void main(String[] args) throws RemoteException, NotBoundException {
+    public static void main(String[] args) throws RemoteException {
         connection(0);
 
 
     }
-    public static void connection(int numberRequest) throws RemoteException, NotBoundException {
+    public static void connection(int numberRequest) throws RemoteException {
         try {
             Registry r = LocateRegistry.createRegistry(1401);
             r.rebind("ucBusca", new SearchRMIServer(new Comunication(),numberRequest));
@@ -187,7 +190,7 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
         }
     }
 
-    public static void failover(int numberRequest) throws RemoteException, NotBoundException {
+    public static void failover(int numberRequest) throws RemoteException {
         ServerLibrary checkMainServer;
         int faultCounter = 0;
         while (true){
@@ -212,9 +215,9 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
     }
 }
 class MulticastThread extends Thread {
-    private String MULTICAST_ADDRESS = "224.0.224.0";
-    private int PORT = 4322;
-    private int PORTsend = 4321;
+    private String MULTICAST_ADDRESS = "224.0.224.3";
+    private int PORT = 9696;
+    private int PORTsend = 6969;
     Comunication comunication;
 
     public MulticastThread(Comunication comunication){
@@ -232,15 +235,12 @@ class MulticastThread extends Thread {
             while (true) {
                 byte[] buffer = new byte[1000];
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
-                System.out.println("está aqui");
                 aSocket.receive(packet);
-                System.out.println("RECEBEU ESTA MERDA ONDE JA RECEBIA "+new String(packet.getData(),0,packet.getLength()));
                 requestId  = this.comunication.sendAnswerToRMI(new String(packet.getData(),0,packet.getLength()));
                 String message = "ACK|"+requestId+";";
                 buffer = message.getBytes();
                 packet = new DatagramPacket(buffer, buffer.length, group, PORTsend);
                 aSocket.send(packet);
-                //aSocket.close();
             }
         } catch (SocketException e) {
             System.out.println("Socket: " + e.getMessage());
@@ -287,7 +287,6 @@ class Comunication {
         int requestId = Integer.parseInt(aux.split("\\|")[1]);
         System.out.println("NOTIFICOU");
         notify();
-
         return requestId;
     }
 }
