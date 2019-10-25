@@ -99,4 +99,17 @@ public class FilesNamesObject {
             ex.printStackTrace();
         }
     }
+    public HashMap<String, HashSet<String>> mergeQueue(Queue<HashMap> queue){
+        HashMap merged_hashmap = new HashMap<>();
+        synchronized (queue){
+            if(! queue.isEmpty()){
+                for (HashMap<String, HashSet<String>> elem : queue){
+                    elem.forEach(
+                            (key, value) -> merged_hashmap.merge( key, value, (v1, v2) -> v1.equals(v2) ? v1 : v1 + "," + v2)
+                    );
+                }
+            }
+        }
+        return merged_hashmap;
+    }
 }

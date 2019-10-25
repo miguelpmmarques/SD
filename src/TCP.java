@@ -3,12 +3,13 @@ import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import java.util.*;
 
 class TCP_CLIENT implements Runnable {
-    Thread t;
-    int tcpServerPort;
-    MessageByTCP messageToBeSent;
-    String ipTCP;
+    private Thread t;
+    private int tcpServerPort;
+    private MessageByTCP messageToBeSent;
+    private String ipTCP;
 
     public TCP_CLIENT(int tcpServerPort,MessageByTCP messageToBeSent,String ipTCP) {
         this.messageToBeSent = messageToBeSent;
@@ -53,11 +54,13 @@ class TCP_SERVER implements Runnable {
     private ServerSocket s;
     String ip;
     private int serversocketPort;
+    private FilesNamesObject database_object;
 
     public TCP_SERVER(int serversocketPort,String ip) {
         this.serverThread = new Thread(this);
         this.serversocketPort = serversocketPort;
         this.ip = ip;
+        this.database_object = new FilesNamesObject(this.serversocketPort);
     }
     public void startTCPServer(){
         serverThread.start();
@@ -73,9 +76,14 @@ class TCP_SERVER implements Runnable {
             }
             System.out.println("CLIENT_SOCKET (created at accept())=" + clientSocket);
 
-            new Connection(clientSocket,serversocketPort);
+            new Connection(clientSocket,serversocketPort, this.database_object);
         }
     }
+
+    public FilesNamesObject getDatabase_object() {
+        return database_object;
+    }
+
     public int tryConnection(){
 
         try {
@@ -95,9 +103,9 @@ class Connection extends Thread {
     ObjectInputStream objectInput;
     Socket clientSocket;
     FilesNamesObject filesManager;
-    public Connection(Socket aClientSocket, int serversocketPort) {
+    public Connection(Socket aClientSocket, int serversocketPort, FilesNamesObject database_object) {
         try {
-            filesManager = new FilesNamesObject(serversocketPort);
+            filesManager = database_object;
             clientSocket = aClientSocket;
             in = new DataInputStream(clientSocket.getInputStream());
             objectInput = new ObjectInputStream(clientSocket.getInputStream());
@@ -114,9 +122,12 @@ class Connection extends Thread {
         MessageByTCP object = null;
         try {
             object = (MessageByTCP)objectInput.readObject();
-            filesManager.saveUsersToDataBase(object.users_list);
-            filesManager.saveHashSetsToDataBase("INDEX",object.indexURL);
-            filesManager.saveHashSetsToDataBase("REFERENCE",object.refereceURL);
+            if (object.type.equals("NEW")){
+                joinDataBase(true, object);
+            }
+            else if (object.type.equals("UPDATE")){
+                joinDataBase(false, object);
+            }
         } catch (EOFException e) {
             System.out.println("Client Loggeg out");
         } catch (IOException e) {
@@ -128,5 +139,25 @@ class Connection extends Thread {
         } finally {
             return;
         }
+    }
+    public void joinDataBase(Boolean with_users, MessageByTCP object){
+        filesManager.saveHashSetsToDataBase("INDEX", merge_hashmaps(filesManager.loadDataBase("INDEX"), object.indexURL));
+        filesManager.saveHashSetsToDataBase("REFERENCE", merge_hashmaps(filesManager.loadDataBase("REFERENCE"), object.refereceURL));
+        if(with_users){
+            filesManager.saveUsersToDataBase(merge_users(filesManager.loadUsersFromDataBase(), object.users_list));
+        }
+
+    }
+    public ArrayList<User> merge_users(ArrayList<User> existing_users, ArrayList<User> new_users){
+        existing_users.removeAll(new_users);
+        existing_users.addAll(new_users);
+        return existing_users;
+    }
+
+    public HashMap<String, HashSet<String>> merge_hashmaps(HashMap<String, HashSet<String>> existing_map, HashMap<String, HashSet<String>> new_map){
+        Queue<HashMap> queue = new LinkedList<>();
+        queue.add(existing_map);
+        queue.add(new_map);
+        return filesManager.mergeQueue(queue);
     }
 }

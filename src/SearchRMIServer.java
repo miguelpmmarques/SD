@@ -1,40 +1,40 @@
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.*;
 import java.net.UnknownHostException;
 import java.rmi.*;
 import java.rmi.registry.*;
 import java.rmi.server.*;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 
 public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrary {
-    private int numberRequest = 0;
+
+    private AtomicInteger numberRequest;
     private ArrayList<User> listLogedUsers = new ArrayList<>();
-    private String MULTICAST_ADDRESS = "224.0.224.3";
+    private String MULTICAST_ADDRESS;
     private Comunication comunication;
 
-    // COMUNICACAO COM O MULTICAST (Enviar)
-    private int PORTsend = 6969;
+    private int PORTsend;
     MulticastSocket socketSend;
 
-    public SearchRMIServer(Comunication comunication, int numberRequest) throws RemoteException {
+    public SearchRMIServer(Comunication comunication, int numberRequest,Properties prop) throws RemoteException {
         super();
         this.comunication = comunication;
-        this.numberRequest = numberRequest;
-        new MulticastThread(comunication);
+        this.numberRequest = new AtomicInteger(numberRequest);
+        this.MULTICAST_ADDRESS = prop.getProperty("MULTICAST_ADDRESS");
+        this.PORTsend = Integer.parseInt(prop.getProperty("MULTICAST_PORT"));
+        new MulticastThread(comunication,MULTICAST_ADDRESS,PORTsend);
         System.out.println("[CURRENT REQUEST NUMBER] - "+numberRequest);
     }
 
 
     private synchronized String sendToMulticast(String message,int idPack) {
         int MAXNUMBEROFTIMEOUTS = 0;
-        message = "id|"+idPack+";"+message;
+        message = "idRMI|"+idPack+";"+message;
         byte[] buffer = message.getBytes();
         int id =-1;
-
-        System.out.println(message);
-
-
         String messageFromMulticast="";
         do{
             try{
@@ -49,23 +49,28 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
                 socketSend.close();
             } catch (IOException e){
                 socketSend.close();
+                return "";
             }
             messageFromMulticast = comunication.receiveAnswer();
             String[] splitedsms = messageFromMulticast.split("\\;");
             String[] splitedsplitedsms = splitedsms[0].split("\\|");
+            System.out.println("Esta por auqi em loop???");
+            System.out.println(splitedsplitedsms[0]);
             if (splitedsplitedsms[0].equals("id"))
             {
                 id = Integer.parseInt(splitedsplitedsms[1]);
+                System.out.println("id - "+id);
+                System.out.println("idPack - "+idPack);
             }
-            System.out.println("---------> "+messageFromMulticast);
             if (MAXNUMBEROFTIMEOUTS == 16){
                 return "SERVERS ARE OFFLINE";
             }
             MAXNUMBEROFTIMEOUTS++;
+            System.out.println("message - "+messageFromMulticast);
+
         }while (messageFromMulticast.equals("") || id!=idPack);
-
+        System.out.println("BAZOUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU");
         return messageFromMulticast;
-
     }
     public String connected(ClientLibrary newUser) throws RemoteException {
         //System.out.println(newUser);
@@ -73,22 +78,19 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
         return "    --WELCOME--\n\nLogin - 1\nRegister -2\nSearch -3\nExit -4\n>>> ";
     }
     public String userRegistration(User newUser) throws RemoteException, UnknownHostException { // DONE
-        String requestToMulticast =  "id|"+this.numberRequest+";type|requestUSERRegist;" +
+        String requestToMulticast =  "type|requestUSERRegist;" +
                 "user|"+newUser.username+";" +
                 "pass|"+newUser.password+"";
         // ifs para verificar
         System.out.println("[USER REGISTERED] - "+requestToMulticast);
-        String answer  =sendToMulticast(requestToMulticast,this.numberRequest);
-        this.numberRequest++;
-
+        String answer  =sendToMulticast(requestToMulticast,this.numberRequest.incrementAndGet());
         return answer;
     }
     public String userLogin(User newUser) { // DONE
         String requestToMulticast =  "type|requestUSERLogin;" + "user|"+newUser.username+";" + "pass|"+newUser.password+"";
         System.out.println("[USER LOG IN] - "+requestToMulticast);
-        String answer = sendToMulticast(requestToMulticast,this.numberRequest);
+        String answer = sendToMulticast(requestToMulticast,this.numberRequest.incrementAndGet());
         char aux = answer.charAt(answer.length()-1);
-        System.out.println("[LETRA] -> "+aux);
         if (aux== 'e'){
             System.out.println(newUser.client);
             try {
@@ -100,108 +102,111 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
         }
         newUser.setThis((ClientLibrary)newUser.client);
         listLogedUsers.add(newUser);
-        this.numberRequest++;
         System.out.println("RESPOSTA -> "+answer);
         return answer;
     }
     public String getHistory(User thisUser) throws RemoteException{
-        String requestToMulticast ="id|"+this.numberRequest+";type|requestUSERhistory;" + "user|"+thisUser.username;
-        String answer = sendToMulticast(requestToMulticast,this.numberRequest);
-        this.numberRequest++;
+        String requestToMulticast ="type|requestUSERhistory;" + "user|"+thisUser.username;
+        String answer = sendToMulticast(requestToMulticast,this.numberRequest.incrementAndGet());
         return answer;
     }
     public String getReferencePages(String url) throws RemoteException{
-        String requestToMulticast ="id|"+this.numberRequest+";type|requestURLbyRef;" + "URL|"+url;
-        String answer = sendToMulticast(requestToMulticast,this.numberRequest);
-        this.numberRequest++;
-        return "List of referenced Pages -> "+requestToMulticast;
+        String requestToMulticast ="type|requestURLbyRef;" + "URL|"+url;
+        String answer = sendToMulticast(requestToMulticast,this.numberRequest.incrementAndGet());
+        System.out.println("REturn -> "+answer);
+        return "List of referenced Pages -> "+answer;
     }
     public String addURLbyADMIN(String url) throws RemoteException{
-        String requestToMulticast ="id|"+this.numberRequest+";type|requestaddURLbyADMIN;" + "URL|"+url;
+        String requestToMulticast ="type|getMulticastList;" + "URL|"+url;
+        String answer = sendToMulticast(requestToMulticast,this.numberRequest.incrementAndGet());
+        System.out.println("LISTAAAAAAAAAAAAAAAAA -- "+answer);
+        String[] chooseMulticast = answer.split("\\;");
+        String choosenMulticast = chooseMulticast[1];
+        System.out.println("EScolha -------> "+choosenMulticast);
+        requestToMulticast ="type|requestaddURLbyADMIN;" + "URL|"+url+";MulticastId|"+choosenMulticast;
         System.out.println("Admin added ULR -> "+requestToMulticast);
-        String answer = sendToMulticast(requestToMulticast,this.numberRequest);
-        this.numberRequest++;
+        answer = sendToMulticast(requestToMulticast,this.numberRequest.incrementAndGet());
         return answer;
     }
     public String changeUserPrivileges(String username) throws RemoteException{
-        String requestToMulticast ="id|"+this.numberRequest+";type|requestChangeUSERPrivileges;" +
+        String requestToMulticast ="type|requestChangeUSERPrivileges;" +
                 "user|"+username;
         System.out.println(requestToMulticast);
-        String answer = sendToMulticast(requestToMulticast,this.numberRequest);
-        this.numberRequest++;
+        String answer = sendToMulticast(requestToMulticast,this.numberRequest.incrementAndGet());
         char aux = answer.charAt(answer.length()-1);
         if (aux == 's'){
-            System.out.println("Esta parte ao menos funciona");
             for (int i=0;i<listLogedUsers.size();i++){
-                System.out.println(">>>>><>>>"+listLogedUsers.get(i).username);
                 if(listLogedUsers.get(i).username.equals(username)){
                     System.out.println(" -............... e chega aqui");
                     try{
                         listLogedUsers.get(i).client.notification("YOU'RE A ADMIN NOW");
                     } catch (Exception e){
-                        this.numberRequest++;
-                        System.out.println(sendToMulticast("type|requestSetNotify;user|"+username,this.numberRequest));
+                        System.out.println(sendToMulticast("type|requestSetNotify;user|"+username,this.numberRequest.incrementAndGet()));
                     }
                     finally {
                         return answer;
                     }
                 }
             }
-            this.numberRequest++;
-            System.out.println(sendToMulticast("type|requestSetNotify;user|"+username,this.numberRequest));
+            System.out.println(sendToMulticast("type|requestSetNotify;user|"+username,this.numberRequest.incrementAndGet()));
 
         }
         return answer;
     }
     public String searchWords(String[] words) throws RemoteException{
         System.out.println();
-        String requestToMulticast ="id|"+this.numberRequest+";type|requestURLbyWord;" +
+        String requestToMulticast ="type|requestURLbyWord;" +
                 "user|"+words[0]+
                 ";word_count|"+(words.length-1)+";";
         for (int i = 1; i <= words.length-1; i++) {
             requestToMulticast+= "word_"+ i+"|"+words[i]+";";
         }
         System.out.println("[USER SEARCH] - "+requestToMulticast);
-        String answer = sendToMulticast(requestToMulticast,this.numberRequest);
-        this.numberRequest++;
+        String answer = sendToMulticast(requestToMulticast,this.numberRequest.incrementAndGet());
         return answer;
     }
     public String getAllUsers() throws RemoteException{
-        String requestToMulticast ="id|"+this.numberRequest+";type|requestAllUSERSPrivileges";
-        String answer = sendToMulticast(requestToMulticast,this.numberRequest);
-        this.numberRequest++;
+        String requestToMulticast ="type|requestAllUSERSPrivileges";
+        String answer = sendToMulticast(requestToMulticast,this.numberRequest.incrementAndGet());
         return answer;
     }
     public String sendSystemInfo() throws RemoteException{
-        String requestToMulticast ="id|"+this.numberRequest+";type|requestSYSinfo";
-        String answer = sendToMulticast(requestToMulticast,this.numberRequest);
+        String requestToMulticast ="type|requestSYSinfo";
+        String answer = sendToMulticast(requestToMulticast,this.numberRequest.incrementAndGet());
         System.out.println(answer);
-        this.numberRequest++;
         return answer;
     }
     //CHECK MAIN SERVER FUNCIONALITY
     public int checkMe() throws RemoteException{
-        return this.numberRequest;
+        return this.numberRequest.intValue();
     }
     // MAIN
     public static void main(String[] args) throws RemoteException {
-        connection(0);
-
-
-    }
-    public static void connection(int numberRequest) throws RemoteException {
+        String propFileName = "config.properties";
+        InputStream inputStream = MulticastServer.class.getClassLoader().getResourceAsStream(propFileName);
+        Properties prop = new Properties();
         try {
-            Registry r = LocateRegistry.createRegistry(1401);
-            r.rebind("ucBusca", new SearchRMIServer(new Comunication(),numberRequest));
+            prop.load(inputStream);
+
+        } catch (Exception e){
+            System.out.println("Cannot read properties File");
+            return;
+        }
+        connection(0,prop);
+    }
+    public static void connection(int numberRequest,Properties prop) throws RemoteException {
+        try {
+            Registry r = LocateRegistry.createRegistry(Integer.parseInt(prop.getProperty("REGISTRYPORT")));
+            r.rebind(prop.getProperty("LOOKUP"), new SearchRMIServer(new Comunication(),numberRequest,prop));
             System.out.println("Im the main Server\nRunning...");
 
         } catch (RemoteException re) {
             System.out.println("Im the Backup Server");
-            failover(numberRequest);
+            failover(numberRequest,prop);
         }
     }
 
-    public static void failover(int numberRequest) throws RemoteException {
+    public static void failover(int numberRequest,Properties prop) throws RemoteException {
         ServerLibrary checkMainServer;
         int faultCounter = 0;
         while (true){
@@ -211,7 +216,8 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
                 System.out.println("Interrupted");
             }
             try{
-                checkMainServer = (ServerLibrary) LocateRegistry.getRegistry(1401).lookup("ucBusca");
+
+                checkMainServer = (ServerLibrary) LocateRegistry.getRegistry(Integer.parseInt(prop.getProperty("REGISTRYPORT"))).lookup(prop.getProperty("LOOKUP"));
                 numberRequest = checkMainServer.checkMe();
                 System.out.println("[WORKIN]");
                 faultCounter = 0;
@@ -222,18 +228,19 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
             if (faultCounter==5)
                 break;
         }
-        connection(numberRequest);
+        connection(numberRequest,prop);
     }
 }
 class MulticastThread extends Thread {
-    private String MULTICAST_ADDRESS = "224.0.224.3";
-    private int PORT = 9696;
-    private int PORTsend = 6969;
+    private String MULTICAST_ADDRESS;
+    private int PORT;
     Comunication comunication;
 
-    public MulticastThread(Comunication comunication){
+    public MulticastThread(Comunication comunication,String MULTICAST_ADDRESS,int PORT){
         this.start();
         this.comunication=comunication;
+        this.MULTICAST_ADDRESS = MULTICAST_ADDRESS;
+        this.PORT = PORT;
     }
 
     public void run() {
@@ -249,17 +256,23 @@ class MulticastThread extends Thread {
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                 aSocket.receive(packet);
                 getSms = new String(packet.getData(),0,packet.getLength());
+                System.out.println("REECEBEU NO PORTO -> "+getSms);
+                if (getSms.substring(0,5).equals("idRMI") ||getSms.substring(0,3).equals("ACK") )
+                {
+                    System.out.println("AutoEnviou-se");
+                    continue;
+                }
                 requestId  = this.comunication.sendAnswerToRMI(getSms);
-                String message = "ACK|"+requestId+";";
-                buffer = message.getBytes();
-                packet = new DatagramPacket(buffer, buffer.length, group, PORTsend);
-                aSocket.send(packet);
+                if (requestId != -1){
+                    String message = "ACK|"+requestId+";";
+                    buffer = message.getBytes();
+                    packet = new DatagramPacket(buffer, buffer.length, group, PORT);
+                    aSocket.send(packet);
+                }
             }
-        } catch (SocketException e) {
+        } catch (IOException e) {
             System.out.println("Socket: " + e.getMessage());
-        } catch (Exception e) {
-            System.out.println("ALL: " + e.getMessage());
-        } finally {
+        }finally {
             System.out.println("NAOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO");
             if (aSocket != null) aSocket.close();
         }
@@ -273,18 +286,30 @@ class Comunication {
     synchronized String receiveAnswer() {
 
         while (!sendToTCPclient)
+        {
             try {
                 wait(5000);
-
-                if (!sendToTCPclient){
-                    System.out.println("[TIME OUT]");
-                    return "";
-                }
-
-                System.out.println("TIMEOUT");
             } catch (InterruptedException e) {
                 System.out.println("interruptedException caught");
+                sendToTCPclient = false;
             }
+
+            System.out.println("LOL Soltou-se");
+            String aux =  this.sharedObj.split("\\;")[0];
+            String[] id = aux.split("\\|");
+            if (!sendToTCPclient){
+                System.out.println("[TIME OUT]");
+                sendToTCPclient = false;
+                return "";
+            }
+            if (id[0].equals("idRMI")){
+                sendToTCPclient = false;
+                continue;
+            }
+
+
+        }
+
 
 
         sendToTCPclient = false;
@@ -292,13 +317,22 @@ class Comunication {
     }
 
     synchronized int sendAnswerToRMI(String sharedObj) {
-        sendToTCPclient = true;
         this.sharedObj = sharedObj;
         String aux =  sharedObj.split("\\;")[0];
-        System.out.println(aux);
-        int requestId = Integer.parseInt(aux.split("\\|")[1]);
-        System.out.println("NOTIFICOU");
-        notify();
-        return requestId;
+        String[] id = aux.split("\\|");
+        try {
+            int requestId = Integer.parseInt(id[1]);
+            if (id[0].equals("id")){
+                System.out.println("NOTIFICOU");
+                sendToTCPclient = true;
+                notifyAll();
+                return requestId;
+
+            }
+        } catch (NumberFormatException e){
+            return -1;
+        }
+        return -1;
+
     }
 }

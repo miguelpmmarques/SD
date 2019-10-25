@@ -3,6 +3,10 @@ import java.rmi.*;
 import java.rmi.registry.*;
 import java.rmi.server.*;
 import java.util.*;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
 
 public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrary{
     //------ Remote Methods ---------
@@ -47,12 +51,15 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
         String out = "";
         boolean flag;
         do{
-            System.out.print("\n\n>>> ");
+            System.out.print(">>>");
             flag = false;
             try {
                 out = keyboardStrings.readLine();
             }catch (IOException e){
                 flag = true;
+            }
+            if (flag || out.length()==0 || !out.contains(".")){
+                System.out.println("Invalid, rewrite please");
             }
         }while (flag || out.length()==0 || !out.contains("."));
         return out;
@@ -101,14 +108,28 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
     }
     private void printArray(String name,HashMap myDic){
         int arraySize = Integer.parseInt((String)myDic.get(name+"_count"));
+        if (arraySize == 0)
+            System.out.println(" -- EMPTY --");
         for(int i =1 ;i<arraySize+1;i++){
-            System.out.println((String)myDic.get(name+"_"+i));
+            System.out.println(i+"º --> "+(String)myDic.get(name+"_"+i));
         }
     }
-    private void printURLS(HashMap myDic){
+    private void printURLS(HashMap myDic)  {
         int arraySize = Integer.parseInt((String)myDic.get("url_count"));
+        if (arraySize == 0)
+            System.out.println(" -- EMPTY --");
         for(int i =1 ;i<arraySize+1;i++){
-            System.out.println(i+"---> "+(String)myDic.get("url_"+i));
+            String url = (String)myDic.get("url_"+i);
+
+            try {
+                Document document = Jsoup.connect(url).get();
+                System.out.println("\n\n\t\t Title "+i+" - "+document.title() + "\n");
+                System.out.println("DESCRIPTION\n"+document.select("meta[name=description]").get(0)
+                        .attr("content"));
+            } catch (IOException | IndexOutOfBoundsException e){
+                System.out.println(" --- Cannot reach page info ---");
+            }
+            System.out.println("URL ---> "+url);
         }
     }
     // SERVER RMI METHODS ------------------------------------------------------------------------------------------
@@ -158,7 +179,11 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
                     this.ucBusca.addURLbyADMIN((String) parameter);
                     break;
                 case rmiGETSYSTEMINFO:
-                    System.out.println(protocolReaderRMISide(this.ucBusca.sendSystemInfo()));
+                    myDic = protocolReaderRMISide(this.ucBusca.sendSystemInfo());
+                    System.out.println("MULTICAST SERVERS ACTIVE");
+                    printArray("activeMulticast",myDic);
+                    System.out.println("\nTOP 10 IMPORTANT PAGES");
+                    printArray("important_pages",myDic);
                     pressToContinue();
                     break;
                 case rmiUSERSLIST:
@@ -338,9 +363,19 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
     // MAIN ----------------------------------------------------------------------------------------------------
     public static void main(String[] args)  {
         final int TIMEOUT = 15;
+        String propFileName = "config.properties";
+        InputStream inputStream = MulticastServer.class.getClassLoader().getResourceAsStream(propFileName);
+        Properties prop = new Properties();
+        try {
+            prop.load(inputStream);
+
+        } catch (Exception e){
+            System.out.println("Cannot read properties File");
+            return;
+        }
         for (int i =0 ;i<TIMEOUT;i++){
             try {
-                ServerLibrary ucBusca = (ServerLibrary) LocateRegistry.getRegistry(1401).lookup("ucBusca" );
+                ServerLibrary ucBusca = (ServerLibrary) LocateRegistry.getRegistry(Integer.parseInt(prop.getProperty("REGISTRYPORT") )).lookup(prop.getProperty("LOOKUP") );
                 SearchRMIClient client = new SearchRMIClient(ucBusca);
                 System.out.println("Connected to UcBusca");
                 client.welcomePage(ucBusca.connected((SearchRMIClient) client));

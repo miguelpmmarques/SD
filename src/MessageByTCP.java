@@ -12,9 +12,10 @@ public class MessageByTCP implements Serializable {
         this.indexURL= indexURL;
         this.users_list= users_list;
     }
-    public MessageByTCP(String type, HashMap<String, HashSet<String>> indexURL){
+    public MessageByTCP(String type, HashMap<String, HashSet<String>> refereceURL, HashMap<String, HashSet<String>> indexURL){
         this.type = type;
         this.indexURL = indexURL;
+        this.refereceURL = refereceURL;
     }
     public String getType(){ return this.type; }
     public ArrayList<User> getUsers(){
@@ -25,5 +26,10 @@ public class MessageByTCP implements Serializable {
     }
     public HashMap<String, HashSet<String>> getRefereceURL(){
         return this.refereceURL;
+    }
+
+    @Override
+    public String toString() {
+        return type;
     }
 }
