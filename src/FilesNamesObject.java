@@ -54,12 +54,9 @@ public class FilesNamesObject {
         } catch (FileNotFoundException ex) {
             System.out.println("Rip");
         } catch (IOException e) {
-            System.out.println("IO -FILE- "+file_name);
-
-            e.printStackTrace();
+            System.out.println("ERROR READING FILE --> "+file_name);
         } catch (ClassNotFoundException e) {
-            System.out.println("Class not found");
-            e.printStackTrace();
+            System.out.println("ERROR FIDING CLASS FROM FILE --> "+file_name);
         }
         return new HashMap<>();
     }

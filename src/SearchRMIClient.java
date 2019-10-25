@@ -47,7 +47,7 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
         String out = "";
         boolean flag;
         do{
-            System.out.print("Insert URL to add to database\n>>> ");
+            System.out.print("\n\n>>> ");
             flag = false;
             try {
                 out = keyboardStrings.readLine();
@@ -258,7 +258,6 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
         while (true){
             System.out.print(ADMIMENU);
             intKeyboardInput=getIntProtected();
-            System.out.println("cagou na puta do numero");
             switch (intKeyboardInput){
                 case 1:
                     this.manageUsersMenu();

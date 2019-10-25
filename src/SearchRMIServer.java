@@ -30,9 +30,11 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
         int MAXNUMBEROFTIMEOUTS = 0;
         message = "id|"+idPack+";"+message;
         byte[] buffer = message.getBytes();
+        int id =-1;
 
         System.out.println(message);
-        // VER A VARIAVEL DE PARAGEM
+
+
         String messageFromMulticast="";
         do{
             try{
@@ -49,12 +51,18 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
                 socketSend.close();
             }
             messageFromMulticast = comunication.receiveAnswer();
+            String[] splitedsms = messageFromMulticast.split("\\;");
+            String[] splitedsplitedsms = splitedsms[0].split("\\|");
+            if (splitedsplitedsms[0].equals("id"))
+            {
+                id = Integer.parseInt(splitedsplitedsms[1]);
+            }
             System.out.println("---------> "+messageFromMulticast);
-            if (MAXNUMBEROFTIMEOUTS == 7){
+            if (MAXNUMBEROFTIMEOUTS == 16){
                 return "SERVERS ARE OFFLINE";
             }
             MAXNUMBEROFTIMEOUTS++;
-        }while (messageFromMulticast.equals(""));
+        }while (messageFromMulticast.equals("") || id!=idPack);
 
         return messageFromMulticast;
 
@@ -73,16 +81,22 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
         String answer  =sendToMulticast(requestToMulticast,this.numberRequest);
         this.numberRequest++;
 
-        return answer;   //Um ifzinho para verificar se o username esta livre
+        return answer;
     }
-    public String userLogin(User newUser) throws RemoteException { // DONE
+    public String userLogin(User newUser) { // DONE
         String requestToMulticast =  "type|requestUSERLogin;" + "user|"+newUser.username+";" + "pass|"+newUser.password+"";
         System.out.println("[USER LOG IN] - "+requestToMulticast);
         String answer = sendToMulticast(requestToMulticast,this.numberRequest);
         char aux = answer.charAt(answer.length()-1);
-        System.out.println(answer);
-        if (aux == 's'){
-            newUser.client.notification("YOU'RE A ADMIN NOW");
+        System.out.println("[LETRA] -> "+aux);
+        if (aux== 'e'){
+            System.out.println(newUser.client);
+            try {
+                newUser.client.notification("YOU'RE A ADMIN NOW");
+            } catch (Exception e){
+                System.out.println("nao perdebo este erro porque funciona");
+            }
+
         }
         newUser.setThis((ClientLibrary)newUser.client);
         listLogedUsers.add(newUser);
@@ -90,7 +104,6 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
         System.out.println("RESPOSTA -> "+answer);
         return answer;
     }
-
     public String getHistory(User thisUser) throws RemoteException{
         String requestToMulticast ="id|"+this.numberRequest+";type|requestUSERhistory;" + "user|"+thisUser.username;
         String answer = sendToMulticast(requestToMulticast,this.numberRequest);
@@ -232,7 +245,7 @@ class MulticastThread extends Thread {
             InetAddress group = InetAddress.getByName(MULTICAST_ADDRESS);
             aSocket.joinGroup(group);
             while (true) {
-                byte[] buffer = new byte[1000];
+                byte[] buffer = new byte[5000];
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                 aSocket.receive(packet);
                 getSms = new String(packet.getData(),0,packet.getLength());
@@ -275,7 +288,6 @@ class Comunication {
 
 
         sendToTCPclient = false;
-        notify();
         return this.sharedObj;
     }
 
