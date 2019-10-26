@@ -141,11 +141,9 @@ class Connection extends Thread {
     //=============================
     public void run() {
         MessageByTCP object = null;
-    System.out.println("ppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp");
         try {
             object = (MessageByTCP)objectInput.readObject();
             if (object.type.equals("NEW")){
-        System.out.println("WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW");
                 joinDataBase(true, true, object);
             }
             else if (object.type.equals("UPDATE")){
@@ -171,21 +169,15 @@ class Connection extends Thread {
     }
     public void joinDataBase(Boolean with_users, Boolean with_references, MessageByTCP object){
     System.out.println("HERE--------------------------------------");
-       HashMap<String, HashSet<String>> indexURL = filesManager.loadDataBase("INDEX");
-        HashMap<String, HashSet<String>> refereceURL = filesManager.loadDataBase("REFERENCE");
-        ArrayList<User> users_list = filesManager.loadUsersFromDataBase();
-    System.out.println("INDEX======>"+ indexURL);
-        System.out.println("REFRENCE======>"+ refereceURL);
-        System.out.println("USERS======>"+ users_list);
       filesManager.saveHashSetsToDataBase(
-          "INDEX", merge_hashmaps(indexURL, object.indexURL));
+          "INDEX", merge_hashmaps(filesManager.loadDataBase("INDEX"), object.indexURL));
       if (with_references)
         filesManager.saveHashSetsToDataBase(
             "REFERENCE",
-            merge_hashmaps(refereceURL, object.refereceURL));
+            merge_hashmaps(filesManager.loadDataBase("REFERENCE"), object.refereceURL));
       if (with_users)
         filesManager.saveUsersToDataBase(
-            merge_users(users_list, object.users_list));
+            merge_users(filesManager.loadUsersFromDataBase(), object.users_list));
 
       System.out.println(filesManager.loadDataBase("INDEX").size());
       System.out.println(filesManager.loadDataBase("REFERENCE").size());

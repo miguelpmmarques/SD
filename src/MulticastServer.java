@@ -2,6 +2,7 @@ import java.io.IOException;
 import java.lang.reflect.Array;
 import java.net.*;
 
+import org.jsoup.Connection;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -31,7 +32,7 @@ class SpamIsAlive extends Thread{
   public void run() {
     while (true){
       try {
-        Thread.sleep(1000);
+        Thread.sleep(3000);
       } catch (InterruptedException e){
         System.out.println("Crashou o sleep");
       }
@@ -187,13 +188,10 @@ class QueueProcessor extends HandleRequest {
       if (!urls_queue.isEmpty()) {
         synchronized (urls_queue) {
           String url = urls_queue.remove();
-          System.out.println("BATEU AQUIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII - "+url);
-
           System.out.println("Getting url " + url + " from queue to process");
           try {
             indexes_and_references_to_send_or_add = this.crawl(url);
             if (indexes_and_references_to_send_or_add.length != 0) {
-
               HashMap changes = indexes_and_references_to_send_or_add[1];
               this.queue_database_changes.add(changes);
               // send indexes to multicast ole
@@ -201,15 +199,16 @@ class QueueProcessor extends HandleRequest {
               this.queue_refs_to_send.add(references);
               // send references to queue
               Set references_set = references.keySet();
-              //sendMulticastMessage("type|needSync;");
+              System.out.println("---------------------------need|sync------------------------------------");
               synchronized (urls_queue) {
                 for (Object ref : references_set) {
                   if(!String.valueOf(ref).isEmpty())
                     urls_queue.add(String.valueOf(ref));
                 }
               }
-              com.process_url(urls_queue);
             }
+            System.out.println("AQUIII");
+            com.process_url(urls_queue);
           } catch (IOException e) {
             e.printStackTrace();
           }
@@ -255,7 +254,7 @@ class HandleRequest extends Thread {
   }
   public void run() {
 
-    System.out.println("I'm " + this.getName());
+    //System.out.println("I'm " + this.getName());
     String messageToRMI = null;
     try {
       messageToRMI = protocolReaderMulticastSide(this.request);
@@ -307,11 +306,12 @@ class HandleRequest extends Thread {
       synchronized (urls_queue) {
         System.out.println("Adding " + myDic.get("URL") + " to urls queues");
         System.out.println("BATEU1");
-        synchronized (urls_queue) {
+
           System.out.println("BATEU2");
           try{
             System.out.println(myDic.get("MulticastId"));
               if(myDic.get("MulticastId").equals(TCP_ADDRESS+":"+myIdByTCP)){
+              System.out.println(myDic.get("URL"));
                 if(!myDic.get("URL").equals("")){
                   urls_queue.add(myDic.get("URL"));
                   System.out.println(myDic.get("URL"));
@@ -323,7 +323,6 @@ class HandleRequest extends Thread {
           }
         }
         com.process_url(urls_queue);
-      }
 
       // integrate tcp and multicast code here;
       // divide references ( index 0  of array ), send one portion to this server's queue, and
@@ -358,6 +357,7 @@ class HandleRequest extends Thread {
       synchronized (this.seperated_refs_to_send) {
         if (seperated_refs_to_send.isEmpty()) {
           HashMap all_refs = filesManager.mergeQueue(this.queue_refs_to_send);
+          System.out.println("QUEUE refs to send------------------------->"+ queue_refs_to_send);
           this.seperated_refs_to_send = divideRefs(all_refs, len);
           System.out.println("Divided_refs===>" + this.seperated_refs_to_send);
           synchronized (this.queue_refs_to_send) {
@@ -378,6 +378,7 @@ class HandleRequest extends Thread {
         synchronized (arrayListMulticastOnline){
           for (Map.Entry<String, Date> val : arrayListMulticastOnline.entrySet()) {
             String[] elem = val.getKey().split("//:");
+            System.out.println(Arrays.toString(elem));
             System.out.println("MY ID BY TCP ===" + myIdByTCP);
             if(Integer.parseInt(elem[1]) !=this.myIdByTCP){
               TCP_CLIENT client = new TCP_CLIENT(Integer.parseInt(elem[1]), message_tcp, elem[0]);
@@ -388,7 +389,7 @@ class HandleRequest extends Thread {
       }
 
       }else {
-      System.out.println("Unsuported Request!");
+      //System.out.println("Unsuported Request!");
     }
     this.join();
   }
@@ -430,8 +431,8 @@ class HandleRequest extends Thread {
           {
             Map.Entry pair = (Map.Entry)i.next();
             Date lastIsAlive = (Date)pair.getValue();
-            //System.out.println(pair.getKey() + " = " + pair.getValue());
-            if ((new Date()).getTime() - lastIsAlive.getTime() > 5000)
+            System.out.println(pair.getKey() + " = " + pair.getValue());
+            if ((new Date()).getTime() - lastIsAlive.getTime() > 13000)
               i.remove();
           }
       }
@@ -712,23 +713,22 @@ class HandleRequest extends Thread {
     HashMap<String, Integer> new_map = new HashMap<>();
     for(Object entry : all_entrys){
       Map.Entry actual_entry = (Map.Entry)entry;
-      //System.out.println("Entry==" +actual_entry);
-      HashSet aux  = (HashSet) actual_entry.getValue();
+//System.out.println("Entry==" +actual_entry);
+      HashSet aux = (HashSet) actual_entry.getValue();
       new_map.put(String.valueOf(actual_entry.getKey()), aux.size());
     }
-    //System.out.println("new_map=" +new_map);
+//System.out.println("new_map=" +new_map);
 
     HashMap<String, Integer> sorted = orderHashMapByIntegerValue(new_map);
     System.out.println("sorted=" + sorted);
     Set key_set = sorted.keySet();
-    //System.out.println("sorted key set=" + key_set);
+//System.out.println("sorted key set=" + key_set);
     String[] array_to_send = (String[]) key_set.toArray(new String[0]);
     List<String> arrayList = Arrays.asList(array_to_send);
-    // TO DO : VERIFICAR SE NAO CRAHA SE HOUVRE MENOS DE 10 URLS
+// TO DO : VERIFICAR SE NAO CRAHA SE HOUVRE MENOS DE 10 URLS
     if (arrayList.size()<10)
       return arrayList;
     return arrayList.subList(0, 10);
-
   }
 
   public Object[] searchWords(String[] words) {
@@ -809,25 +809,28 @@ class HandleRequest extends Thread {
       String inputLink = url;
 
       // Attempt to connect and get the document
-      System.out.println("input link=" + inputLink);
+      Connection conn;
       Document doc;
       try {
-        doc = Jsoup.connect(inputLink).get(); // Documentation: https://jsoup.org/
+        conn = (Connection) Jsoup.connect(inputLink);
+        conn.timeout(5000);
+        doc = conn.get();// Documentation: https://jsoup.org/
       } catch (IllegalArgumentException e){
         System.out.println("URL not found by Jsoup");
         return new HashMap[0];
       }
 
-
       // Title
-      //System.out.println("WEB SITE TITLE > " + doc.title() + "\n");
+      // System.out.println("WEB SITE TITLE > " + doc.title() + "\n");
 
       // Get all links
       Elements links = doc.select("a[href]");
+
       database_changes_and_references_to_index[0] =
           indexURLreferences(links, inputLink, refereceURL);
-
+      System.out.println("DATABASE CHANGES==="+ database_changes_and_references_to_index[0]);
       String text = doc.text();
+      System.out.println("oleoleoleol :::"+ text);
       database_changes_and_references_to_index[1] = indexWords(text, inputLink, indexURL);
 
       //System.out.println("URL REFERENCE FROM " + doc.title() + "\n" + refereceURL);
@@ -858,25 +861,28 @@ class HandleRequest extends Thread {
   }
   }*/
 
-  private static HashMap<String, HashSet<String>> indexURLreferences(
+  private HashMap<String, HashSet<String>> indexURLreferences(
       Elements links, String inputWebsite, HashMap refereceURL) {
     HashMap<String, HashSet<String>> references_to_send = new HashMap<>();
     for (Element link : links) {
       String linkfound = link.attr("abs:href");
-      HashSet aux = (HashSet) refereceURL.get(linkfound);
-      if (aux == null) {
-        aux = new HashSet<String>();
+      System.out.println(linkfound);
+      if (linkfound.trim().length() != 0) {
+        HashSet aux = (HashSet) refereceURL.get(linkfound);
+        if (aux == null) {
+          aux = new HashSet<String>();
+        }
+        aux.add(inputWebsite);
+        refereceURL.put(linkfound, aux);
+        references_to_send.put(linkfound, aux);
       }
-      aux.add(inputWebsite);
-      refereceURL.put(linkfound, aux);
-      references_to_send.put(linkfound, aux);
+      // System.out.println(
+      // "References to send-------------------------------------" + references_to_send);
     }
-    //System.out.println(
-        //"References to send-------------------------------------" + references_to_send);
     return references_to_send;
   }
 
-  private static HashMap<String, HashSet<String>> indexWords(
+  private HashMap<String, HashSet<String>> indexWords(
       String text, String URL, HashMap indexURL) {
     HashMap<String, HashSet<String>> indexes_to_send = new HashMap<>();
     BufferedReader reader =
@@ -894,9 +900,9 @@ class HandleRequest extends Thread {
           if ("".equals(word)) {
             continue;
           }
-          HashSet aux = (HashSet) indexURL.get(word);
-          if (aux == null) {
-            aux = new HashSet<String>();
+          HashSet aux = new HashSet();
+          if ( indexURL.get(word) != null) {
+            aux.addAll((Collection) indexURL.get(word));
           }
           aux.add(URL);
           indexURL.put(word, aux);

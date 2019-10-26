@@ -46,7 +46,7 @@ public class FilesNamesObject {
         FileInputStream fis;
         ObjectInputStream ois;
         HashMap<String, HashSet<String>> map;
-        System.out.println("FILE NAME __________________>>>"+file_name);
+        //System.out.println("FILE NAME __________________>>>"+file_name);
         try {
             fis = new FileInputStream(f_ref);
             ois = new ObjectInputStream(fis);
@@ -107,6 +107,7 @@ public class FilesNamesObject {
         synchronized (queue){
             if(! queue.isEmpty()){
                 for (HashMap<String, HashSet<String>> elem : queue){
+          System.out.println("ELEM****************************************>>>>>>>>>>"+ elem);
                     elem.forEach(
                             (key, value) -> merged_hashmap.merge( key, value, (v1, v2) -> v1.equals(v2) ? v1 : v1 + "," + v2)
                     );
