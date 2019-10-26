@@ -35,7 +35,7 @@ class SpamIsAlive extends Thread{
       } catch (InterruptedException e){
         System.out.println("Crashou o sleep");
       }
-      System.out.println("SPAMANDO MULTICASTS");
+      //System.out.println("SPAMANDO MULTICASTS");
       MulticastSocket socket = null;
       String message = "type|MulticastIsAlive;myid|"+TCP_PORT+";myIp|"+TCP_IP_ADDRESS;
       try {
@@ -58,9 +58,9 @@ public class MulticastServer extends Thread {
   private String MULTICAST_ADDRESS;
   private int PORT;
   private String TCP_ADDRESS;
-  protected Queue<String> urls_queue = new LinkedList<>();
+  protected Queue<String> urls_queue;
   protected QueueProcessor processQueue = null;
-  protected ComunicationUrlsQueueRequestHandler com = new ComunicationUrlsQueueRequestHandler();
+  protected ComunicationUrlsQueueRequestHandler com;
   private int myIdByTCP;
   private HashMap responsesTable;
   private FilesNamesObject filesManager;
@@ -83,11 +83,12 @@ public class MulticastServer extends Thread {
       return;
     }
     TCP_SERVER serverTCP = new TCP_SERVER(Integer.parseInt(prop.getProperty("TCP_PORT_ADDRESS")),prop.getProperty("TCP_IP_ADDRESS"));
-    int portId = serverTCP.tryConnection();
+    //int portId = serverTCP.tryConnection();
+    int portId = serverTCP.getServersocketPort();
     FilesNamesObject filesManager = serverTCP.getDatabase_object();
     System.out.println("Multicast Id -> "+portId);
     serverTCP.startTCPServer();
-    MulticastServer server = new MulticastServer(portId,filesManager,prop);
+    MulticastServer server = new MulticastServer(portId,filesManager,prop, serverTCP.getCom(), serverTCP.getUrls_queue());
     server.start();
 
   }
@@ -103,10 +104,12 @@ public class MulticastServer extends Thread {
     return separated_refs_to_send;
   }
 
-  public MulticastServer(int id,FilesNamesObject filesManager,Properties prop) {
+  public MulticastServer(int id,FilesNamesObject filesManager,Properties prop, ComunicationUrlsQueueRequestHandler com, Queue<String> urls_queue) {
     super("server-" + id);
     this.filesManager = filesManager;
     this.myIdByTCP = id;
+    this.com = com;
+    this.urls_queue = urls_queue;
     MULTICAST_ADDRESS = prop.getProperty("MULTICAST_ADDRESS");
     PORT = Integer.parseInt(prop.getProperty("MULTICAST_PORT"));
     TCP_ADDRESS = prop.getProperty("TCP_IP_ADDRESS");
@@ -285,14 +288,13 @@ class HandleRequest extends Thread {
     }
   }
 
-  /*
-  MORRE PAULO
+
   public void interpretRequest(String sms) throws InterruptedException {
     HashMap<String,String> myDic = new HashMap<>();
     String[] splitedsms = sms.split("\\;");
     for (int i =0;i<splitedsms.length;i++){
       String[] splitedsplitedsms = splitedsms[i].split("\\|");
-      System.out.println(splitedsms[i]);
+      //System.out.println(splitedsms[i]);
       myDic.put(splitedsplitedsms[0],splitedsplitedsms[1]);
     }
     Object[] to_send_multicast_and_tcp;
@@ -315,12 +317,12 @@ class HandleRequest extends Thread {
                   System.out.println(myDic.get("URL"));
                 }
                   //System.out.println("URLS QUEUE INSIDE HANDLE REQUEST SCOPE=" + urls_queue);
-                  com.process_url(urls_queue);
               }
           }catch(NullPointerException e){
-              System.out.println("NOT MY ID");
-            }
+            System.out.println("NOT MY ID");
+          }
         }
+        com.process_url(urls_queue);
       }
 
       // integrate tcp and multicast code here;
@@ -345,11 +347,11 @@ class HandleRequest extends Thread {
       }
       else if(myDic.get("type").equals("sync")){
         int len = 1;
-        String[] newMulticast = {myDic.get("myid"),myDic.get("myIp")};
+        String newMulticast = myDic.get("myIp")+":"+myDic.get("myid");
         synchronized (arrayListMulticastOnline){
-          if(! arrayListMulticastOnline.contains(newMulticast)){
+          if(! arrayListMulticastOnline.keySet().contains(newMulticast)){
             len = arrayListMulticastOnline.size();
-            arrayListMulticastOnline.add(newMulticast);
+            arrayListMulticastOnline.put(newMulticast,new Date());
           }
         }
       HashMap<String, HashSet<String>> all_changes = filesManager.mergeQueue(this.queue_database_changes);
@@ -374,9 +376,11 @@ class HandleRequest extends Thread {
         }
           MessageByTCP message_tcp = new MessageByTCP("UPDATE", this.seperated_refs_to_send, all_changes);
         synchronized (arrayListMulticastOnline){
-          for (String[] elem : arrayListMulticastOnline) {
-            if(Integer.parseInt(elem[0]) !=this.myIdByTCP){
-              TCP_CLIENT client = new TCP_CLIENT(Integer.parseInt(elem[0]), message_tcp, elem[1]);
+          for (Map.Entry<String, Date> val : arrayListMulticastOnline.entrySet()) {
+            String[] elem = val.getKey().split("//:");
+            System.out.println("MY ID BY TCP ===" + myIdByTCP);
+            if(Integer.parseInt(elem[1]) !=this.myIdByTCP){
+              TCP_CLIENT client = new TCP_CLIENT(Integer.parseInt(elem[1]), message_tcp, elem[0]);
             }
           }
         }
@@ -389,8 +393,6 @@ class HandleRequest extends Thread {
     this.join();
   }
 
-
-   */
 
   private String protocolReaderMulticastSide(String sms) throws InterruptedException {
     String[] splitedsms = sms.split("\\;");
@@ -417,8 +419,10 @@ class HandleRequest extends Thread {
 
         if(arrayListMulticastOnline.put(newMulticast,new Date()) == null){
           // Join dos ficheiros deles
-          MessageByTCP messageToTCP = new MessageByTCP("NEW", this.filesManager.loadDataBase("REFERENCE"),this.filesManager.loadDataBase("INDEX"),this.filesManager.loadUsersFromDataBase());
-          new TCP_CLIENT(Integer.parseInt(myDic.get("myid")),messageToTCP,myDic.get("myIp"));
+          synchronized (filesManager){
+            MessageByTCP messageToTCP = new MessageByTCP("NEW", this.filesManager.loadDataBase("REFERENCE"),this.filesManager.loadDataBase("INDEX"),this.filesManager.loadUsersFromDataBase());
+            new TCP_CLIENT(Integer.parseInt(myDic.get("myid")),messageToTCP,myDic.get("myIp"));
+          }
 
         }
           Iterator i = arrayListMulticastOnline.entrySet().iterator();
@@ -426,7 +430,7 @@ class HandleRequest extends Thread {
           {
             Map.Entry pair = (Map.Entry)i.next();
             Date lastIsAlive = (Date)pair.getValue();
-            System.out.println(pair.getKey() + " = " + pair.getValue());
+            //System.out.println(pair.getKey() + " = " + pair.getValue());
             if ((new Date()).getTime() - lastIsAlive.getTime() > 5000)
               i.remove();
           }
@@ -435,7 +439,7 @@ class HandleRequest extends Thread {
     else if (responsesTable.get(myDic.get("id"))!=null ){
       return (String)responsesTable.get(myDic.get("id"));
     }
-    System.out.println(myDic);
+    //System.out.println(myDic);
     if (myDic.get("idRMI")!=null){
       switch ((String)myDic.get("type")) {
         case "requestURLbyWord":
@@ -651,11 +655,12 @@ class HandleRequest extends Thread {
     return messageToRMI;
   }
 
-  /*public HashMap<String, HashSet<String>> divideRefs(HashMap new_from_merged, int len){
+  public HashMap<String, HashSet<String>> divideRefs(HashMap new_from_merged, int len){
     // change after merge, the array list no longer contains this server
     boolean extra;
     int size;
     HashMap<String, HashSet<String>> strings_to_send = new HashMap<>();
+    ArrayList<String> aux_alive_multicast_array = new ArrayList<>(arrayListMulticastOnline.keySet());
     synchronized (new_from_merged){
       size = new_from_merged.size();
       if(size%len!=0){
@@ -672,14 +677,14 @@ class HandleRequest extends Thread {
 
         if (extra){
           if((i%(size/len)==0 && i!= size-1) || i==size){
-            strings_to_send.put(Arrays.toString(arrayListMulticastOnline.get(server_index)), aux_array);
+            strings_to_send.put(aux_alive_multicast_array.get(server_index), aux_array);
             server_index++;
             aux_array = new HashSet<>();
           }
         }
         else{
           if(i%(size/len)==0){
-            strings_to_send.put(Arrays.toString(arrayListMulticastOnline.get(server_index)), aux_array);
+            strings_to_send.put(aux_alive_multicast_array.get(server_index), aux_array);
             server_index++;
             aux_array = new HashSet<>();
           }
@@ -688,7 +693,7 @@ class HandleRequest extends Thread {
       }
     }
     return strings_to_send;
-  }*/
+  }
   private String returnString(String name,HashMap myDic){
     String returnS = "";
     int arraySize = Integer.parseInt((String)myDic.get(name+"_count"));

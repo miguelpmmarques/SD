@@ -24,8 +24,10 @@ public class FilesNamesObject {
             return new ArrayList<User>();
         } catch (IOException e) {
             e.printStackTrace();
+            new ArrayList<User>();
         } catch (ClassNotFoundException e) {
             e.printStackTrace();
+            new ArrayList<User>();
         }
         return users_list;
     }
@@ -43,11 +45,12 @@ public class FilesNamesObject {
         File f_ref = new File(file_name);
         FileInputStream fis;
         ObjectInputStream ois;
-        HashMap map;
+        HashMap<String, HashSet<String>> map;
+        System.out.println("FILE NAME __________________>>>"+file_name);
         try {
             fis = new FileInputStream(f_ref);
             ois = new ObjectInputStream(fis);
-            map = (HashMap) ois.readObject();
+            map = (HashMap<String, HashSet<String>>) ois.readObject();
 
             return map;
 
@@ -66,7 +69,7 @@ public class FilesNamesObject {
             FileOutputStream fos = new FileOutputStream(this.userFile);
             ObjectOutputStream oos = new ObjectOutputStream(fos);
             oos.writeObject(objectToSave);
-            System.out.println("GUARDADO EM FICHEIROS OBJETOS COM SUCESSO -> USERS");
+            //System.out.println("GUARDADO EM FICHEIROS OBJETOS COM SUCESSO -> USERS");
             oos.close();
             fos.close();
         } catch (IOException ex) {
@@ -91,7 +94,7 @@ public class FilesNamesObject {
             ObjectOutputStream oos = new ObjectOutputStream(fos);
             oos.writeObject(objectToSave);
 
-            System.out.println("GUARDADO EM FICHEIROS OBJETOS COM SUCESSO -> " + typeObject);
+            //System.out.println("GUARDADO EM FICHEIROS OBJETOS COM SUCESSO -> " + typeObject);
             oos.close();
             fos.close();
         } catch (IOException ex) {
