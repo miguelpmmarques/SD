@@ -4,6 +4,8 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.*;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 class TCP_CLIENT implements Runnable {
     private Thread t;
@@ -56,7 +58,7 @@ class TCP_SERVER implements Runnable {
     private int serversocketPort;
     private FilesNamesObject database_object;
     private ComunicationUrlsQueueRequestHandler com;
-    Queue<String> urls_queue = new LinkedList<>();
+    BlockingQueue<String> urls_queue = new LinkedBlockingQueue<>();
 
     public TCP_SERVER(int serversocketPort,String ip) {
         this.serverThread = new Thread(this);
@@ -70,7 +72,6 @@ class TCP_SERVER implements Runnable {
         serverThread.start();
     }
     public void run() {
-    System.out.println("OLE________________>>>"+ this.serversocketPort);
         while (true) {
             Socket clientSocket = null;
             try {
@@ -111,7 +112,7 @@ class TCP_SERVER implements Runnable {
         return com;
     }
 
-    public Queue<String> getUrls_queue() {
+    public BlockingQueue<String> getUrls_queue() {
         return urls_queue;
     }
 }
@@ -121,11 +122,11 @@ class Connection extends Thread {
     ObjectInputStream objectInput;
     Socket clientSocket;
     FilesNamesObject filesManager;
-    Queue<String> urls_queue;
+    BlockingQueue<String> urls_queue;
     ComunicationUrlsQueueRequestHandler com;
-    public Connection(Socket aClientSocket, int serversocketPort, FilesNamesObject database_object,Queue<String> urls_queu, ComunicationUrlsQueueRequestHandler com) {
+    public Connection(Socket aClientSocket, int serversocketPort, FilesNamesObject database_object,BlockingQueue<String> urls_queue, ComunicationUrlsQueueRequestHandler com) {
     System.out.println("CONNECTION");
-        this.urls_queue = urls_queu;
+        this.urls_queue = urls_queue;
         this.com = com;
         try {
             filesManager = database_object;
@@ -144,15 +145,11 @@ class Connection extends Thread {
         try {
             object = (MessageByTCP)objectInput.readObject();
             if (object.type.equals("NEW")){
-                joinDataBase(true, true, object);
+                updateDataBase(object,true);
             }
             else if (object.type.equals("UPDATE")){
-                joinDataBase(false, false, object);
-                synchronized (urls_queue){
-                    for (Map.Entry<String, HashSet<String>> elem : object.getRefereceURL().entrySet()){
-                        urls_queue.addAll(elem.getValue());
-                    }
-                }
+                urls_queue.addAll(object.urls_queue);
+                updateDataBase(object,false);
                 com.process_url(urls_queue);
             }
         } catch (EOFException e) {
@@ -167,32 +164,49 @@ class Connection extends Thread {
             return;
         }
     }
-    public void joinDataBase(Boolean with_users, Boolean with_references, MessageByTCP object){
-    System.out.println("HERE--------------------------------------");
-      filesManager.saveHashSetsToDataBase(
-          "INDEX", merge_hashmaps(filesManager.loadDataBase("INDEX"), object.indexURL));
-      if (with_references)
-        filesManager.saveHashSetsToDataBase(
-            "REFERENCE",
-            merge_hashmaps(filesManager.loadDataBase("REFERENCE"), object.refereceURL));
-      if (with_users)
-        filesManager.saveUsersToDataBase(
-            merge_users(filesManager.loadUsersFromDataBase(), object.users_list));
+    private void updateDataBase(MessageByTCP object,boolean saveUsers){
+        System.out.println("DEBUG INDEX object --------- "+object.indexURL);
+        System.out.println("DEBUG INDEX file --------- "+filesManager.loadDataBase("INDEX"));
 
-      System.out.println(filesManager.loadDataBase("INDEX").size());
-      System.out.println(filesManager.loadDataBase("REFERENCE").size());
-      System.out.println(filesManager.loadUsersFromDataBase().size());
+        System.out.println("DEBUG REFERENCE object --------- "+object.refereceURL);
+        System.out.println("DEBUG REFERENCE file --------- "+filesManager.loadDataBase("REFERENCE"));
+
+        filesManager.saveHashSetsToDataBase("INDEX",mergeDataBases(filesManager.loadDataBase("INDEX"),object.indexURL));
+        filesManager.saveHashSetsToDataBase("REFERENCE",mergeDataBases(filesManager.loadDataBase("REFERENCE"),object.refereceURL));
+        if (saveUsers)
+            filesManager.saveUsersToDataBase(merge_users(filesManager.loadUsersFromDataBase(),object.users_list));
     }
+
+    private HashMap<String, HashSet<String>> mergeDataBases(HashMap<String, HashSet<String>> one ,HashMap<String, HashSet<String>> two){
+        Iterator it = one.entrySet().iterator();
+        while (it.hasNext()) {
+            Map.Entry pair = (Map.Entry)it.next();
+            if (two.get(pair.getKey())==null)
+                two.put((String) pair.getKey(),(HashSet<String>) pair.getValue());
+            else {
+                two.get(pair.getKey()).addAll((HashSet<String>) pair.getValue());
+            }
+        }
+        return two;
+    }
+
+
+
     public ArrayList<User> merge_users(ArrayList<User> existing_users, ArrayList<User> new_users){
-        existing_users.removeAll(new_users);
-        existing_users.addAll(new_users);
-        return existing_users;
+        ArrayList<User> list_to_send = new ArrayList<>();
+        list_to_send.addAll(existing_users);
+        for ( User aux_new : new_users ){
+            int helper=0;
+            for (User aux : existing_users){
+                if(!aux_new.username.equals(aux.username)){
+                    helper++;
+                }
+            }
+            if(helper==existing_users.size()){
+                list_to_send.add(aux_new);
+            }
+        }
+        return list_to_send;
     }
 
-    public HashMap<String, HashSet<String>> merge_hashmaps(HashMap<String, HashSet<String>> existing_map, HashMap<String, HashSet<String>> new_map){
-        Queue<HashMap> queue = new LinkedList<>();
-        queue.add(existing_map);
-        queue.add(new_map);
-        return filesManager.mergeQueue(queue);
-    }
 }

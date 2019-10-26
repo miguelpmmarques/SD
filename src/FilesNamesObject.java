@@ -6,9 +6,9 @@ public class FilesNamesObject {
     String indexFile;
     String referenceFile;
     public FilesNamesObject(int portId){
-         this.userFile = "indexURL"+portId+".tmp";;
-         this.indexFile = "referenceURL"+portId+".tmp";
-         this.referenceFile = "users"+portId+".tmp";
+         this.indexFile = "indexURL"+portId+".tmp";;
+         this.referenceFile = "referenceURL"+portId+".tmp";
+         this.userFile = "users"+portId+".tmp";
     }
     public synchronized ArrayList<User> loadUsersFromDataBase() {
         File f_users = new File(this.userFile);
@@ -51,11 +51,11 @@ public class FilesNamesObject {
             fis = new FileInputStream(f_ref);
             ois = new ObjectInputStream(fis);
             map = (HashMap<String, HashSet<String>>) ois.readObject();
-
             return map;
 
         } catch (FileNotFoundException ex) {
-            System.out.println("Rip");
+            System.out.println("Ficheiro ainda nao existe");
+            return new HashMap<>();
         } catch (IOException e) {
             System.out.println("ERROR READING FILE --> "+file_name);
         } catch (ClassNotFoundException e) {
@@ -102,12 +102,11 @@ public class FilesNamesObject {
             ex.printStackTrace();
         }
     }
-    public HashMap<String, HashSet<String>> mergeQueue(Queue<HashMap> queue){
+    public synchronized HashMap<String, HashSet<String>> mergeQueue(Queue<HashMap> queue){
         HashMap merged_hashmap = new HashMap<>();
         synchronized (queue){
             if(! queue.isEmpty()){
                 for (HashMap<String, HashSet<String>> elem : queue){
-          System.out.println("ELEM****************************************>>>>>>>>>>"+ elem);
                     elem.forEach(
                             (key, value) -> merged_hashmap.merge( key, value, (v1, v2) -> v1.equals(v2) ? v1 : v1 + "," + v2)
                     );

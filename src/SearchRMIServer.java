@@ -54,7 +54,6 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
             messageFromMulticast = comunication.receiveAnswer();
             String[] splitedsms = messageFromMulticast.split("\\;");
             String[] splitedsplitedsms = splitedsms[0].split("\\|");
-            System.out.println("Esta por auqi em loop???");
             System.out.println(splitedsplitedsms[0]);
             if (splitedsplitedsms[0].equals("id"))
             {
@@ -69,7 +68,6 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
             System.out.println("message - "+messageFromMulticast);
 
         }while (messageFromMulticast.equals("") || id!=idPack);
-        System.out.println("BAZOUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU");
         return messageFromMulticast;
     }
     public String connected(ClientLibrary newUser) throws RemoteException {
@@ -83,6 +81,7 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
                 "pass|"+newUser.password+"";
         // ifs para verificar
         System.out.println("[USER REGISTERED] - "+requestToMulticast);
+        listLogedUsers.add(newUser);
         String answer  =sendToMulticast(requestToMulticast,this.numberRequest.incrementAndGet());
         return answer;
     }
@@ -117,7 +116,7 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
         return "List of referenced Pages -> "+answer;
     }
     public String addURLbyADMIN(String url) throws RemoteException{
-        String requestToMulticast ="type|getMulticastList;" + "URL|"+url;
+        String requestToMulticast ="type|getMulticastList;";
         String answer = sendToMulticast(requestToMulticast,this.numberRequest.incrementAndGet());
         System.out.println("LISTAAAAAAAAAAAAAAAAA -- "+answer);
         String[] chooseMulticast = answer.split("\\;");
@@ -135,9 +134,11 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
         String answer = sendToMulticast(requestToMulticast,this.numberRequest.incrementAndGet());
         char aux = answer.charAt(answer.length()-1);
         if (aux == 's'){
+            System.out.println(listLogedUsers.size());
             for (int i=0;i<listLogedUsers.size();i++){
+                System.out.println(listLogedUsers.get(i).username);
                 if(listLogedUsers.get(i).username.equals(username)){
-                    System.out.println(" -............... e chega aqui");
+                    System.out.println("ENCONTROUUUUUU");
                     try{
                         listLogedUsers.get(i).client.notification("YOU'RE A ADMIN NOW");
                     } catch (Exception e){
@@ -293,8 +294,6 @@ class Comunication {
                 System.out.println("interruptedException caught");
                 sendToTCPclient = false;
             }
-
-            System.out.println("LOL Soltou-se");
             String aux =  this.sharedObj.split("\\;")[0];
             String[] id = aux.split("\\|");
             if (!sendToTCPclient){

@@ -62,6 +62,9 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
                 System.out.println("Invalid, rewrite please");
             }
         }while (flag || out.length()==0 || !out.contains("."));
+        out = out.trim();
+        if (! out.startsWith("http://") && ! out.startsWith("https://"))
+            out = "http://".concat(out);
         return out;
     }
     // Method to do avoid writing strings in numbers input
@@ -257,11 +260,6 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
     // MENUS ----------------------------------------------------------------------------------------------------
     private void manageUsersMenu() throws IOException, InterruptedException, NotBoundException {
         while (true){
-            if (thisUser.getIsAdmin()){
-                this.adminMenu();
-                return;
-            }
-
             System.out.print(VIEWPLAYERSMENU);
             intKeyboardInput=getIntProtected();
             switch (intKeyboardInput){
@@ -317,8 +315,14 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
     }
     private void mainMenu() throws IOException, InterruptedException, NotBoundException {
         while (true){
+
             System.out.print(MAINMENU);
             intKeyboardInput = getIntProtected();
+            if (thisUser.getIsAdmin()){
+                this.adminMenu();
+                return;
+            }
+
             switch (intKeyboardInput){
                 case 1:
                     System.out.println(" --- UcBusca ---");
