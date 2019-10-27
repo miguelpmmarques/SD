@@ -231,7 +231,9 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
     * */
     public static void connection(int numberRequest,Properties prop) throws RemoteException {
         try {
+            System.setProperty("java.rmi.server.hostname",prop.getProperty("REGISTRYIP"));
             Registry r = LocateRegistry.createRegistry(Integer.parseInt(prop.getProperty("REGISTRYPORT")));
+            System.out.println(r);
             r.rebind(prop.getProperty("LOOKUP"), new SearchRMIServer(new Comunication(),numberRequest,prop));
             System.out.println("Im the main Server\nRunning...");
 

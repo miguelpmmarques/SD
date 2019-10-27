@@ -1,8 +1,5 @@
 import java.io.*;
-import java.net.InetAddress;
-import java.net.ServerSocket;
-import java.net.Socket;
-import java.net.UnknownHostException;
+import java.net.*;
 import java.util.*;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -94,29 +91,38 @@ class TCP_SERVER implements Runnable {
 
     public int tryConnection(){
 
-        try {
+          /*  try {
             Socket ping = new Socket(this.ip, this.serversocketPort);
             ping.close();
             ++this.serversocketPort;
             tryConnection();
         } catch (Exception e){
-            this.s = new ServerSocket(this.serversocketPort,100, InetAddress.getByName(this.ip));
-            return this.serversocketPort;
+            try{
+                this.s = new ServerSocket(this.serversocketPort,100, InetAddress.getByName(this.ip));
+            } catch (UnknownHostException ex) {
+                ex.printStackTrace();
+            } catch (IOException ex) {
+                ex.printStackTrace();
+            }
         }
+        return this.serversocketPort;
+*/
 
-        tryConnection();
 
-        /*
         try {
             System.out.println(".................ip -> "+this.ip);
             this.s = new ServerSocket(this.serversocketPort,100, InetAddress.getByName(this.ip));
             System.out.println("LISTEN SOCKET=" + s);
+            }catch(BindException e){
+            System.out.println("Port Occupied");
+            ++this.serversocketPort;
+            tryConnection();
         } catch (Exception e) {
             System.out.println("Port Occupied");
             ++this.serversocketPort;
             tryConnection();
         }
-        return this.serversocketPort;*/
+        return this.serversocketPort;
     }
 
     public int getServersocketPort() {
