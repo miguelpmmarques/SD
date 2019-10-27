@@ -17,7 +17,7 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
     private Comunication comunication;
     private int PORTsend;
     MulticastSocket socketSend;
-
+//ole
     public SearchRMIServer(Comunication comunication, int numberRequest,Properties prop) throws RemoteException {
         super();
         this.comunication = comunication;
