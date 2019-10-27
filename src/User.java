@@ -2,7 +2,7 @@ import java.io.*;
 import java.util.ArrayList;
 
 public class User implements Serializable {
-    //Mudar depois
+
     private String username;
     private String password;
     private ClientLibrary client;

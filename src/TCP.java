@@ -61,12 +61,13 @@ class TCP_SERVER implements Runnable {
     BlockingQueue<String> urls_queue = new LinkedBlockingQueue<>();
 
     public TCP_SERVER(int serversocketPort,String ip) {
+
         this.serverThread = new Thread(this);
         this.serversocketPort = serversocketPort;
-        this.tryConnection();
         this.ip = ip;
         this.database_object = new FilesNamesObject(this.serversocketPort);
         this.com = new ComunicationUrlsQueueRequestHandler();
+        this.tryConnection();
     }
     public void startTCPServer(){
         serverThread.start();
@@ -94,14 +95,28 @@ class TCP_SERVER implements Runnable {
     public int tryConnection(){
 
         try {
+            Socket ping = new Socket(this.ip, this.serversocketPort);
+            ping.close();
+            ++this.serversocketPort;
+            tryConnection();
+        } catch (Exception e){
+            this.s = new ServerSocket(this.serversocketPort,100, InetAddress.getByName(this.ip));
+            return this.serversocketPort;
+        }
+
+        tryConnection();
+
+        /*
+        try {
+            System.out.println(".................ip -> "+this.ip);
             this.s = new ServerSocket(this.serversocketPort,100, InetAddress.getByName(this.ip));
             System.out.println("LISTEN SOCKET=" + s);
-        } catch (IOException e) {
+        } catch (Exception e) {
             System.out.println("Port Occupied");
             ++this.serversocketPort;
             tryConnection();
         }
-        return this.serversocketPort;
+        return this.serversocketPort;*/
     }
 
     public int getServersocketPort() {
