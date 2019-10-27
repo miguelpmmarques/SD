@@ -35,6 +35,7 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
 
     private SearchRMIClient(ServerLibrary ucBusca, Properties prop) throws RemoteException {
         super();
+        this.prop = prop;
         this.ucBusca = ucBusca;
     }
     // CLIENT RMI METHODS ----------------------------------------------------------------------------------------------
@@ -193,7 +194,6 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
                         System.out.println("INVALID REGISTER, USERNAME ALREADY IN USE");
                         return;
                     }
-
                     break;
                 case rmiSEARCH:
                     myDic = protocolReaderRMISide(this.ucBusca.searchWords((String[]) parameter));
@@ -210,6 +210,8 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
                     printArray("activeMulticast",myDic);
                     System.out.println("\nTOP 10 IMPORTANT PAGES");
                     printArray("important_pages",myDic);
+                    System.out.println("\nTOP 10 SEARCHES");
+                    printArray("top_search",myDic);
                     pressToContinue();
                     break;
                 case rmiUSERSLIST:
@@ -424,10 +426,8 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
         }
         for (int i =0 ;i<TIMEOUT;i++){
             try {
-                ServerLibrary ucBusca = (ServerLibrary) LocateRegistry.getRegistry("192.168.1.130", Integer.parseInt(prop.getProperty("REGISTRYPORT") )).lookup(prop.getProperty("LOOKUP") );
-        System.out.println("uc busca ____>>>"+ ucBusca);
+                ServerLibrary ucBusca = (ServerLibrary) LocateRegistry.getRegistry(prop.getProperty("REGISTRYIP"), Integer.parseInt(prop.getProperty("REGISTRYPORT") )).lookup(prop.getProperty("LOOKUP") );
                 SearchRMIClient client = new SearchRMIClient(ucBusca,prop);
-        System.out.println("CLIENT-------->"+ client);
                 System.out.println("Connected to UcBusca");
                 client.welcomePage(ucBusca.connected((SearchRMIClient) client));
                 return;

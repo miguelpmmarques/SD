@@ -3,6 +3,7 @@ import java.net.*;
 import java.util.*;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.io.Serializable;
 
 class TCP_CLIENT implements Runnable {
     private Thread t;
@@ -54,7 +55,6 @@ class TCP_SERVER implements Runnable {
     String ip;
     private int serversocketPort;
     private FilesNamesObject database_object;
-    private ComunicationUrlsQueueRequestHandler com;
     BlockingQueue<String> urls_queue = new LinkedBlockingQueue<>();
 
     public TCP_SERVER(int serversocketPort,String ip) {
@@ -63,7 +63,6 @@ class TCP_SERVER implements Runnable {
         this.serversocketPort = serversocketPort;
         this.ip = ip;
         this.database_object = new FilesNamesObject(this.serversocketPort);
-        this.com = new ComunicationUrlsQueueRequestHandler();
         this.tryConnection();
     }
     public void startTCPServer(){
@@ -81,7 +80,7 @@ class TCP_SERVER implements Runnable {
             }
             System.out.println("CLIENT_SOCKET (created at accept())=" + clientSocket);
 
-            new Connection(clientSocket,serversocketPort, this.database_object, urls_queue, com);
+            new Connection(clientSocket,serversocketPort, this.database_object, urls_queue);
         }
     }
 
@@ -129,14 +128,50 @@ class TCP_SERVER implements Runnable {
         return serversocketPort;
     }
 
-    public ComunicationUrlsQueueRequestHandler getCom() {
-        return com;
-    }
-
     public BlockingQueue<String> getUrls_queue() {
         return urls_queue;
     }
 }
+
+class MessageByTCP implements Serializable {
+    String type;
+    HashMap<String, HashSet<String>> refereceURL;
+    HashMap<String, HashSet<String>> indexURL;
+    ArrayList<User> users_list;
+    BlockingQueue<String> urls_queue;
+    public MessageByTCP(String type, HashMap<String, HashSet<String>> refereceURL,HashMap<String, HashSet<String>> indexURL,ArrayList<User> users_list){
+        this.type = type;
+        this.refereceURL= refereceURL;
+        this.indexURL= indexURL;
+        this.users_list= users_list;
+    }
+    public MessageByTCP(String type, BlockingQueue<String> urls_queue,HashMap<String, HashSet<String>> refereceURL,HashMap<String, HashSet<String>> indexURL){
+        this.type = type;
+        this.urls_queue = urls_queue;
+        this.refereceURL= refereceURL;
+        this.indexURL= indexURL;
+    }
+    public String getType(){ return this.type; }
+    public ArrayList<User> getUsers(){
+        return this.users_list;
+    }
+    public HashMap<String, HashSet<String>> getIndexURL(){
+        return this.indexURL;
+    }
+    public HashMap<String, HashSet<String>> getRefereceURL(){
+        return this.refereceURL;
+    }
+
+    @Override
+    public String toString() {
+        return type;
+    }
+}
+
+
+
+
+
 class Connection extends Thread {
     DataInputStream in;
     DataOutputStream out;
@@ -144,11 +179,9 @@ class Connection extends Thread {
     Socket clientSocket;
     FilesNamesObject filesManager;
     BlockingQueue<String> urls_queue;
-    ComunicationUrlsQueueRequestHandler com;
-    public Connection(Socket aClientSocket, int serversocketPort, FilesNamesObject database_object,BlockingQueue<String> urls_queue, ComunicationUrlsQueueRequestHandler com) {
+    public Connection(Socket aClientSocket, int serversocketPort, FilesNamesObject database_object,BlockingQueue<String> urls_queue) {
     System.out.println("CONNECTION");
         this.urls_queue = urls_queue;
-        this.com = com;
         try {
             filesManager = database_object;
             clientSocket = aClientSocket;

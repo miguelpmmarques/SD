@@ -17,7 +17,7 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
     private Comunication comunication;
     private int PORTsend;
     MulticastSocket socketSend;
-//ole
+
     public SearchRMIServer(Comunication comunication, int numberRequest,Properties prop) throws RemoteException {
         super();
         this.comunication = comunication;
@@ -91,7 +91,9 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
                 "pass|"+newUser.getPassword()+"";
         // ifs para verificar
         System.out.println("[USER REGISTERED] - "+requestToMulticast);
-        listLogedUsers.add(newUser);
+        synchronized (listLogedUsers){
+            listLogedUsers.add(newUser);
+        }
         String answer  =sendToMulticast(requestToMulticast,this.numberRequest.incrementAndGet());
         return answer;
     }
@@ -112,7 +114,9 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
 
         }
         newUser.setThis((ClientLibrary)newUser.getClient());
-        listLogedUsers.add(newUser);
+        synchronized (listLogedUsers){
+            listLogedUsers.add(newUser);
+        }
         System.out.println("RESPOSTA -> "+answer);
         return answer;
     }
@@ -133,42 +137,50 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
         System.out.println("REturn -> "+answer);
         return "List of referenced Pages -> "+answer;
     }
+    /*
+    * Metodo que caso nao esteja a ser feito web crawling, inicializa-o, e se ja estiver a ser feito,
+    * acrescenta o url na queue de urls prontos a ser processados
+    * */
     public String addURLbyADMIN(String url) throws RemoteException{
         String requestToMulticast ="type|getMulticastList;";
         String answer = sendToMulticast(requestToMulticast,this.numberRequest.incrementAndGet());
-        System.out.println("LISTAAAAAAAAAAAAAAAAA -- "+answer);
+
+        // PRIMEIRO PEDE A LISTA DE TODOS OS MULTICASTS ATIVOS PARA ESCOLHER UM DELES PARA INDEXAR
         String[] chooseMulticast = answer.split("\\;");
         String choosenMulticast = chooseMulticast[1];
-        System.out.println("EScolha -------> "+choosenMulticast);
+
+        // ASSIM QUE ESCOLHEU O MULTICAST, INDEXA-LHE O URL ESCRITO
         requestToMulticast ="type|requestaddURLbyADMIN;" + "URL|"+url+";MulticastId|"+choosenMulticast;
         System.out.println("Admin added ULR -> "+requestToMulticast);
         answer = sendToMulticast(requestToMulticast,this.numberRequest.incrementAndGet());
         return answer;
     }
+    /*
+    * Metodo que permite o Administrador tornar outros utilizadores administradores
+    * Trata tambem das notificacoes, tanto online como offline, avisando o Multicast
+    * */
     public String changeUserPrivileges(String username) throws RemoteException{
-        String requestToMulticast ="type|requestChangeUSERPrivileges;" +
-                "user|"+username;
+        String requestToMulticast ="type|requestChangeUSERPrivileges;" + "user|"+username;
         System.out.println(requestToMulticast);
         String answer = sendToMulticast(requestToMulticast,this.numberRequest.incrementAndGet());
         char aux = answer.charAt(answer.length()-1);
         if (aux == 's'){
-            System.out.println(listLogedUsers.size());
-            for (int i=0;i<listLogedUsers.size();i++){
-                System.out.println(listLogedUsers.get(i).getUsername());
-                if(listLogedUsers.get(i).getUsername().equals(username)){
-                    System.out.println("ENCONTROUUUUUU");
-                    try{
-                        listLogedUsers.get(i).getClient().notification("YOU'RE A ADMIN NOW");
-                    } catch (Exception e){
-                        System.out.println(sendToMulticast("type|requestSetNotify;user|"+username,this.numberRequest.incrementAndGet()));
-                    }
-                    finally {
-                        return answer;
+            synchronized (listLogedUsers){
+                for (int i=0;i<listLogedUsers.size();i++){
+                    System.out.println(listLogedUsers.get(i).getUsername());
+                    if(listLogedUsers.get(i).getUsername().equals(username)){
+                        try{
+                            listLogedUsers.get(i).getClient().notification("YOU'RE A ADMIN NOW");
+                        } catch (Exception e){
+                            System.out.println(sendToMulticast("type|requestSetNotify;user|"+username,this.numberRequest.incrementAndGet()));
+                        }
+                        finally {
+                            return answer;
+                        }
                     }
                 }
             }
             System.out.println(sendToMulticast("type|requestSetNotify;user|"+username,this.numberRequest.incrementAndGet()));
-
         }
         return answer;
     }
@@ -276,6 +288,10 @@ class MulticastThread extends Thread {
     private String MULTICAST_ADDRESS;
     private int PORT;
     Comunication comunication;
+    /*
+     * Thread incorporada no servidor RMI, que esta sempre a correr durante toda a execucao o servidor RMI
+     * que tem o objetivo de receber as respostas vindas por parte dos servidores Multicast
+     * */
 
     public MulticastThread(Comunication comunication,String MULTICAST_ADDRESS,int PORT){
         this.start();
@@ -320,6 +336,10 @@ class MulticastThread extends Thread {
     }
 
 }
+/*
+ * Troca de respostas pela Thread de leitura e as threads RMI a espera de resposta
+ * E feito deixa maneira de modo a sincronizar esta troca de variaveis
+ * */
 class Comunication {
     String sharedObj = "";
     boolean sendToTCPclient = false;

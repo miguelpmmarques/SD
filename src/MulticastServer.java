@@ -51,7 +51,7 @@ class SpamIsAlive extends Thread {
             } catch (IOException e) {
                 e.printStackTrace();
             } finally {
-                socket.close();
+                System.out.println("Sem Internet");
             }
         }
 
@@ -64,7 +64,6 @@ public class MulticastServer extends Thread {
     private String TCP_ADDRESS;
     protected BlockingQueue<String> urls_queue;
     protected QueueProcessor processQueue;
-    protected ComunicationUrlsQueueRequestHandler com;
     private int myIdByTCP;
     private HashMap responsesTable;
     private FilesNamesObject filesManager;
@@ -88,9 +87,8 @@ public class MulticastServer extends Thread {
         FilesNamesObject filesManager = serverTCP.getDatabase_object();
         System.out.println("Multicast Id -> " + portId);
         serverTCP.startTCPServer();
-        MulticastServer server = new MulticastServer(portId, filesManager, prop, serverTCP.getCom(), serverTCP.getUrls_queue());
+        MulticastServer server = new MulticastServer(portId, filesManager, prop, serverTCP.getUrls_queue());
         server.start();
-
     }
 
     public int getMyIdByTCP() {
@@ -105,23 +103,21 @@ public class MulticastServer extends Thread {
         return separated_refs_to_send;
     }
 
-    public MulticastServer(int id, FilesNamesObject filesManager, Properties prop, ComunicationUrlsQueueRequestHandler com, BlockingQueue<String> urls_queue) {
+    public MulticastServer(int id, FilesNamesObject filesManager, Properties prop, BlockingQueue<String> urls_queue) {
         super("server-" + id);
         this.filesManager = filesManager;
         this.myIdByTCP = id;
-        this.com = com;
         this.urls_queue = urls_queue;
         System.out.println("Esta aqui alguma coisa?" + urls_queue);
         MULTICAST_ADDRESS = prop.getProperty("MULTICAST_ADDRESS");
         PORT = Integer.parseInt(prop.getProperty("MULTICAST_PORT"));
         TCP_ADDRESS = prop.getProperty("TCP_IP_ADDRESS");
-        String[] myMulticast = {"" + id, TCP_ADDRESS};
         new SpamIsAlive(MULTICAST_ADDRESS, TCP_ADDRESS, PORT, id);
 
     }
 
     public void run() {
-        processQueue = new QueueProcessor(this, "", com, responsesTable, filesManager, arrayListMulticastOnline);
+        processQueue = new QueueProcessor(this, "", responsesTable, filesManager, arrayListMulticastOnline);
         processQueue.start();
         listenMulticast();
     }
@@ -129,12 +125,6 @@ public class MulticastServer extends Thread {
     public int getMyPort() {
         return this.PORT;
     }
-
-    public QueueProcessor getProcessQueue() {
-        return processQueue;
-    }
-
-
 
     public BlockingQueue<String> getUrlsQueue() {
         return this.urls_queue;
@@ -154,13 +144,12 @@ public class MulticastServer extends Thread {
             InetAddress group = InetAddress.getByName(MULTICAST_ADDRESS);
             socket.joinGroup(group);
             while (true) {
-                byte[] buffer = new byte[5000];
+                byte[] buffer = new byte[10000];
                 DatagramPacket received_packet = new DatagramPacket(buffer, buffer.length);
                 socket.receive(received_packet);
                 String message = new String(received_packet.getData(), 0, received_packet.getLength());
                 if (!message.substring(0, 3).equals("id|")) {
-
-                    HandleRequest handle = new HandleRequest(this, message, com, responsesTable, filesManager, arrayListMulticastOnline);
+                    HandleRequest handle = new HandleRequest(this, message, responsesTable, filesManager, arrayListMulticastOnline);
                     handle.start();
                 }
             }
@@ -175,8 +164,8 @@ public class MulticastServer extends Thread {
 }
 
 class QueueProcessor extends HandleRequest {
-    public QueueProcessor(MulticastServer parent_thread, String message, ComunicationUrlsQueueRequestHandler com, HashMap responsesTable, FilesNamesObject filesManager, HashMap<String, Date> arrayListMulticastOnline) {
-        super(parent_thread, message, com, responsesTable, filesManager, arrayListMulticastOnline);
+    public QueueProcessor(MulticastServer parent_thread, String message, HashMap responsesTable, FilesNamesObject filesManager, HashMap<String, Date> arrayListMulticastOnline) {
+        super(parent_thread, message, responsesTable, filesManager, arrayListMulticastOnline);
         this.setName("Queue Processor-" + this.getId());
         System.out.println("URLS PROCESSING THREAD HERE!");
     }
@@ -184,10 +173,8 @@ class QueueProcessor extends HandleRequest {
     public void run() {
         HashMap[] indexes_and_references_to_send_or_add;
         while (true) {
-            System.out.println("---------------------------------------> " + urls_queue);
 
-            System.out.println("urls_queue  == " + urls_queue.size());
-
+            System.out.println("URL queue size  == " + urls_queue.size());
 
             if (urls_queue.size() != 0) {
 
@@ -216,22 +203,22 @@ class QueueProcessor extends HandleRequest {
                     Iterator i = arrayListMulticastOnline.entrySet().iterator();
                     while (i.hasNext()) {
                         Map.Entry pair = (Map.Entry) i.next();
-                        BlockingQueue<String> aux= new LinkedBlockingQueue<>();
-                        int elementsInQueue= urls_queue.size();
-                        for (int j = 0; j < elementsInQueue/(arrayListMulticastOnline.size()*2); j++) {
+                        BlockingQueue<String> aux = new LinkedBlockingQueue<>();
+                        int elementsInQueue = urls_queue.size();
+                        for (int j = 0; j < elementsInQueue / (arrayListMulticastOnline.size() * 2); j++) {
                             try {
                                 aux.put(urls_queue.remove());
-                            } catch (InterruptedException e){
+                            } catch (InterruptedException e) {
                                 System.out.println("nao adicionou");
                             }
                         }
                         String[] ip_port = ((String) pair.getKey()).split(":");
-                        MessageByTCP messageToTCP = new MessageByTCP("UPDATE", aux,references,index);
+                        MessageByTCP messageToTCP = new MessageByTCP("UPDATE", aux, references, index);
                         new TCP_CLIENT(Integer.parseInt(ip_port[1]), messageToTCP, ip_port[0]);
                     }
                 }
-            }else {
-                synchronized (urls_queue){
+            } else {
+                synchronized (urls_queue) {
                     try {
                         urls_queue.wait();
                     } catch (InterruptedException e) {
@@ -249,7 +236,6 @@ class HandleRequest extends Thread {
     private String request;
     protected BlockingQueue<String> urls_queue;
     HashMap<String, String> responsesTable;
-    ComunicationUrlsQueueRequestHandler com;
     FilesNamesObject filesManager;
     HashMap<String, Date> arrayListMulticastOnline;
     private String TCP_ADDRESS;
@@ -258,10 +244,9 @@ class HandleRequest extends Thread {
     private HashMap<String, HashSet<String>> seperated_refs_to_send;
 
 
-    public HandleRequest(MulticastServer parent_thread, String message, ComunicationUrlsQueueRequestHandler com, HashMap responsesTable, FilesNamesObject filesManager, HashMap<String, Date> arrayListMulticastOnline) {
+    public HandleRequest(MulticastServer parent_thread, String message, HashMap responsesTable, FilesNamesObject filesManager, HashMap<String, Date> arrayListMulticastOnline) {
         super();
         this.setName("Handler-" + this.getId());
-        this.com = com;
         this.request = message;
         this.responsesTable = responsesTable;
         this.urls_queue = parent_thread.getUrlsQueue();
@@ -310,6 +295,9 @@ class HandleRequest extends Thread {
         }
     }
 
+    /*
+     * Handler que trata das mensagens recebidas, resumidamente, traduz o protocolo
+     * */
     private String protocolReaderMulticastSide(String sms) throws InterruptedException {
         String[] splitedsms = sms.split("\\;");
         DatabaseHandler bd;
@@ -325,7 +313,9 @@ class HandleRequest extends Thread {
             return "";
         }
         if (myDic.get("ACK") != null) {
-            responsesTable.remove(myDic.get("ACK"));
+            synchronized (responsesTable){
+                responsesTable.remove(myDic.get("ACK"));
+            }
             return "";
         } else if (myDic.get("type").equals("MulticastIsAlive")) {
             if (!myDic.get("myid").equals("" + this.myIdByTCP)) {
@@ -374,7 +364,11 @@ class HandleRequest extends Thread {
                     for (int i = 0; i < urls.length; i++) {
                         messageToRMI += "url_" + (i + 1) + "|" + urls[i] + ";";
                     }
-                    responsesTable.put(myDic.get("idRMI"), messageToRMI);
+                    synchronized (responsesTable) {
+                        responsesTable.put(myDic.get("idRMI"), messageToRMI);
+
+                    }
+
                     return messageToRMI;
 
                 case "requestURLbyRef":
@@ -393,7 +387,10 @@ class HandleRequest extends Thread {
                             k++;
                         }
                     }
-                    responsesTable.put(myDic.get("idRMI"), messageToRMI);
+                    synchronized (responsesTable) {
+                        responsesTable.put(myDic.get("idRMI"), messageToRMI);
+                    }
+
                     return messageToRMI;
                 case "requestUSERhistory":
                     User myUser;
@@ -408,11 +405,15 @@ class HandleRequest extends Thread {
                             for (int j = 0; j < myUserHistory.size(); j++) {
                                 message2send += "word_" + (j + 1) + "|" + myUserHistory.get(j) + ";";
                             }
-                            responsesTable.put(myDic.get("idRMI"), "id|" + (String) myDic.get("idRMI") + ";type|responsetUSERhistory;" + message2send);
+                            synchronized (responsesTable) {
+                                responsesTable.put(myDic.get("idRMI"), "id|" + (String) myDic.get("idRMI") + ";type|responsetUSERhistory;" + message2send);
+                            }
                             return "id|" + (String) myDic.get("idRMI") + ";type|responsetUSERhistory;" + message2send;
                         }
                     }
-                    responsesTable.put(myDic.get("idRMI"), "id|" + (String) myDic.get("idRMI") + ";type|responsetUSERhistory;");
+                    synchronized (responsesTable) {
+                        responsesTable.put(myDic.get("idRMI"), "id|" + (String) myDic.get("idRMI") + ";type|responsetUSERhistory;");
+                    }
                     return "id|" + (String) myDic.get("idRMI") + ";type|responsetUSERhistory;";
                 case "requestUSERLogin":
                     users = filesManager.loadUsersFromDataBase();
@@ -421,18 +422,26 @@ class HandleRequest extends Thread {
                             if (users.get(i).getIsAdmin()) {
                                 if (users.get(i).getNotify()) {
                                     users.get(i).setNotify(false);
-                                    responsesTable.put(myDic.get("idRMI"), "id|" + (String) myDic.get("idRMI") + ";type|responseUSERLogin;status|logged admin;Notify|true");
+                                    synchronized (responsesTable) {
+                                        responsesTable.put(myDic.get("idRMI"), "id|" + (String) myDic.get("idRMI") + ";type|responseUSERLogin;status|logged admin;Notify|true");
+                                    }
                                     return "id|" + (String) myDic.get("idRMI") + ";type|responseUSERLogin;status|logged admin;Notify|true";
 
                                 }
-                                responsesTable.put(myDic.get("idRMI"), "id|" + (String) myDic.get("idRMI") + ";type|responseUSERLogin;status|logged admin;Notify|false");
+                                synchronized (responsesTable) {
+                                    responsesTable.put(myDic.get("idRMI"), "id|" + (String) myDic.get("idRMI") + ";type|responseUSERLogin;status|logged admin;Notify|false");
+                                }
                                 return "id|" + (String) myDic.get("idRMI") + ";type|responseUSERLogin;status|logged admin;Notify|nop";
                             }
-                            responsesTable.put(myDic.get("idRMI"), "id|" + (String) myDic.get("idRMI") + ";type|responseUSERLogin;status|logged on");
+                            synchronized (responsesTable) {
+                                responsesTable.put(myDic.get("idRMI"), "id|" + (String) myDic.get("idRMI") + ";type|responseUSERLogin;status|logged on");
+                            }
                             return "id|" + (String) myDic.get("idRMI") + ";type|responseUSERLogin;status|logged on;Notify|nop";
                         }
                     }
-                    responsesTable.put(myDic.get("idRMI"), "id|" + (String) myDic.get("idRMI") + ";type|responseUSERLogin;status|logged off;");
+                    synchronized (responsesTable) {
+                        responsesTable.put(myDic.get("idRMI"), "id|" + (String) myDic.get("idRMI") + ";type|responseUSERLogin;status|logged off;");
+                    }
                     return "id|" + (String) myDic.get("idRMI") + ";type|responseUSERLogin;status|logged off;";
                 case "requestUSERRegist":
                     users = filesManager.loadUsersFromDataBase();
@@ -443,19 +452,25 @@ class HandleRequest extends Thread {
 
                         bd = new DatabaseHandler(users, filesManager);
                         bd.start();
-                        responsesTable.put(myDic.get("idRMI"), "id|" + (String) myDic.get("idRMI") + ";type|responseUSERRegist;status|Admin");
+                        synchronized (responsesTable) {
+                            responsesTable.put(myDic.get("idRMI"), "id|" + (String) myDic.get("idRMI") + ";type|responseUSERRegist;status|Admin");
+                        }
                         return "id|" + (String) myDic.get("idRMI") + ";type|responseUSERRegist;status|Admin";
                     }
                     for (int i = 0; i < users.size(); i++) {
                         if (users.get(i).getUsername().equals((String) myDic.get("user"))) {
-                            responsesTable.put(myDic.get("idRMI"), "id|" + (String) myDic.get("idRMI") + ";type|responseUSERRegist;status|Failled");
+                            synchronized (responsesTable) {
+                                responsesTable.put(myDic.get("idRMI"), "id|" + (String) myDic.get("idRMI") + ";type|responseUSERRegist;status|Failled");
+                            }
                             return "id|" + (String) myDic.get("idRMI") + ";type|responseUSERRegist;status|Failled";
                         }
                     }
                     users.add(new User((String) myDic.get("user"), (String) myDic.get("pass")));
                     bd = new DatabaseHandler(users, filesManager);
                     bd.start();
-                    responsesTable.put(myDic.get("idRMI"), "id|" + (String) myDic.get("idRMI") + ";type|responseUSERRegist;status|Success");
+                    synchronized (responsesTable) {
+                        responsesTable.put(myDic.get("idRMI"), "id|" + (String) myDic.get("idRMI") + ";type|responseUSERRegist;status|Success");
+                    }
                     return "id|" + (String) myDic.get("idRMI") + ";type|responseUSERRegist;status|Success";
 
 
@@ -472,7 +487,9 @@ class HandleRequest extends Thread {
                             messageToSend += "User;";
                         }
                     }
-                    responsesTable.put(myDic.get("idRMI"), messageToSend);
+                    synchronized (responsesTable) {
+                        responsesTable.put(myDic.get("idRMI"), messageToSend);
+                    }
                     return messageToSend;
                 case "requestSetNotify":
                     users = filesManager.loadUsersFromDataBase();
@@ -483,16 +500,19 @@ class HandleRequest extends Thread {
                             bd = new DatabaseHandler(users, filesManager);
                             bd.start();
                         }
-                        responsesTable.put(myDic.get("idRMI"), "id|" + (String) myDic.get("idRMI") + ";type|responseSetNotify");
+                        synchronized (responsesTable) {
+                            responsesTable.put(myDic.get("idRMI"), "id|" + (String) myDic.get("idRMI") + ";type|responseSetNotify");
+                        }
                         return "id|" + (String) myDic.get("idRMI") + ";type|responseSetNotify";
                     }
                 case "requestChangeUSERPrivileges":
                     users = filesManager.loadUsersFromDataBase();
                     for (int i = 0; i < users.size(); i++) {
                         if (myDic.get("user").equals(users.get(i).getUsername())) {
-                            if (users.get(i).getIsAdmin())
-                            {
-                                responsesTable.put(myDic.get("idRMI"), "id|" + (String) myDic.get("idRMI") + ";type|responseChangeUSERPrivileges;" + "status|User is already an Admin");
+                            if (users.get(i).getIsAdmin()) {
+                                synchronized (responsesTable) {
+                                    responsesTable.put(myDic.get("idRMI"), "id|" + (String) myDic.get("idRMI") + ";type|responseChangeUSERPrivileges;" + "status|User is already an Admin");
+                                }
                                 return "id|" + (String) myDic.get("idRMI") + ";type|responseChangeUSERPrivileges;" + "status|User is already an Admin";
                             }
 
@@ -500,12 +520,16 @@ class HandleRequest extends Thread {
                             users.get(i).setNotify(true);
                             bd = new DatabaseHandler(users, filesManager);
                             bd.start();
-                            responsesTable.put(myDic.get("idRMI"), "id|" + (String) myDic.get("idRMI") + ";type|responseChangeUSERPrivileges;" + "status|New admin added with success");
+                            synchronized (responsesTable) {
+                                responsesTable.put(myDic.get("idRMI"), "id|" + (String) myDic.get("idRMI") + ";type|responseChangeUSERPrivileges;" + "status|New admin added with success");
+                            }
                             return "id|" + (String) myDic.get("idRMI") + ";type|responseChangeUSERPrivileges;" + "status|New admin added with success";
                         }
 
                     }
-                    responsesTable.put(myDic.get("idRMI"), "id|" + (String) myDic.get("idRMI") + ";type|responseChangeUSERPrivileges;" + "status|User not Found");
+                    synchronized (responsesTable) {
+                        responsesTable.put(myDic.get("idRMI"), "id|" + (String) myDic.get("idRMI") + ";type|responseChangeUSERPrivileges;" + "status|User not Found");
+                    }
                     return "id|" + (String) myDic.get("idRMI") + ";type|responseChangeUSERPrivileges;" + "status|User not Found";
                 case "getMulticastList":
                     String listMulticast = ";";
@@ -517,7 +541,9 @@ class HandleRequest extends Thread {
                     }
                     listMulticast += this.TCP_ADDRESS + ":" + this.myIdByTCP + ";";
                     System.out.println(listMulticast);
-                    responsesTable.put(myDic.get("idRMI"), "id|" + (String) myDic.get("idRMI") + listMulticast);
+                    synchronized (responsesTable) {
+                        responsesTable.put(myDic.get("idRMI"), "id|" + (String) myDic.get("idRMI") + listMulticast);
+                    }
                     return "id|" + (String) myDic.get("idRMI") + listMulticast;
 
                 case "requestaddURLbyADMIN":
@@ -525,10 +551,12 @@ class HandleRequest extends Thread {
                     System.out.println("O QUE TENHO -->" + this.TCP_ADDRESS + ":" + this.myIdByTCP);
                     if (myDic.get("MulticastId").equals(this.TCP_ADDRESS + ":" + this.myIdByTCP)) {
                         urls_queue.put(myDic.get("URL"));
-                        synchronized (urls_queue){
+                        synchronized (urls_queue) {
                             urls_queue.notify();
                         }
-                        responsesTable.put(myDic.get("idRMI"), "id|" + (String) myDic.get("idRMI") + ";type|responseaddURLbyADMIN;" + "status|Success");
+                        synchronized (responsesTable) {
+                            responsesTable.put(myDic.get("idRMI"), "id|" + (String) myDic.get("idRMI") + ";type|responseaddURLbyADMIN;" + "status|Success");
+                        }
                         return "id|" + (String) myDic.get("idRMI") + ";type|responseaddURLbyADMIN;" + "status|Success";
                     }
                     return "";
@@ -547,60 +575,50 @@ class HandleRequest extends Thread {
                     message2Send += "activeMulticast_" + ls + "|" + this.TCP_ADDRESS + ":" + this.myIdByTCP + ";";
                     List<String> top10ULR = getTenMostReferencedUrls();
                     message2Send += "important_pages_count|" + top10ULR.size() + ";";
-
-                    int m = 1;
+                    ls = 1;
                     for (String elem : top10ULR) {
-                        message2Send += "important_pages_" + m + "|" + elem + ";";
-                        m++;
+                        message2Send += "important_pages_" + ls + "|" + elem + ";";
+                        ls++;
+                    }
+                    users = filesManager.loadUsersFromDataBase();
+                    HashMap<String, Integer> topSearches = new HashMap<>();
+                    for (User elem : users) {
+                        for (String seach : elem.getSearchToHistory()) {
+                            if (topSearches.get(seach) != null) {
+                                topSearches.computeIfPresent(seach, (k, v) -> v + 1);
+                            } else {
+                                topSearches.put(seach, 1);
+                            }
+                        }
+                    }
+
+                    if (topSearches.size() > 10) {
+                        message2Send += "top_search_count|10;";
+                    } else {
+                        message2Send += "top_search_count|" + topSearches.size() + ";";
+                    }
+                    topSearches = orderHashMapByIntegerValue(topSearches);
+                    ls = 1;
+                    for (Map.Entry pair : topSearches.entrySet()) {
+                        System.out.println(pair.getKey());
+                        message2Send += "top_search_" + ls + "|" + pair.getKey() + ";";
+                        if (ls == 10) {
+                            break;
+                        }
+                        ls++;
                     }
 
 
-                    responsesTable.put(myDic.get("idRMI"), "id|" + (String) myDic.get("idRMI") + ";type|responseSYSinfo;" + message2Send);
+                    System.out.println("TOP SORTED -------->" + topSearches);
+                    synchronized (responsesTable) {
+                        responsesTable.put(myDic.get("idRMI"), "id|" + (String) myDic.get("idRMI") + ";type|responseSYSinfo;" + message2Send);
+                    }
                     return "id|" + (String) myDic.get("idRMI") + ";type|responseSYSinfo;" + message2Send;
                 default:
                     messageToRMI = "";
             }
         }
         return messageToRMI;
-    }
-
-    public HashMap<String, HashSet<String>> divideRefs(HashMap new_from_merged, int len) {
-        // change after merge, the array list no longer contains this server
-        boolean extra;
-        int size;
-        HashMap<String, HashSet<String>> strings_to_send = new HashMap<>();
-        ArrayList<String> aux_alive_multicast_array = new ArrayList<>(arrayListMulticastOnline.keySet());
-        synchronized (new_from_merged) {
-            size = new_from_merged.size();
-            if (size % len != 0) {
-                extra = true;
-            } else {
-                extra = false;
-            }
-            int i = 1;
-            int server_index = 0;
-            HashSet<String> aux_array = new HashSet<>();
-            for (Object elem : new_from_merged.entrySet()) {
-                Map.Entry aux_elem = (Map.Entry) elem;
-                aux_array.add(String.valueOf(aux_elem.getKey()));
-
-                if (extra) {
-                    if ((i % (size / len) == 0 && i != size - 1) || i == size) {
-                        strings_to_send.put(aux_alive_multicast_array.get(server_index), aux_array);
-                        server_index++;
-                        aux_array = new HashSet<>();
-                    }
-                } else {
-                    if (i % (size / len) == 0) {
-                        strings_to_send.put(aux_alive_multicast_array.get(server_index), aux_array);
-                        server_index++;
-                        aux_array = new HashSet<>();
-                    }
-                }
-                i++;
-            }
-        }
-        return strings_to_send;
     }
 
     private String returnString(String name, HashMap myDic) {
@@ -709,16 +727,10 @@ class HandleRequest extends Thread {
         HashMap[] database_changes_and_references_to_index = new HashMap[2];
         refereceURL = this.filesManager.loadDataBase("REFERENCE");
         indexURL = this.filesManager.loadDataBase("INDEX");
-
-        //System.out.println("index url:" + indexURL);
-        //System.out.println("reference url:" + refereceURL);
-        //System.out.println("URL =" + url);
-
         try {
 
             String inputLink = url;
 
-            // Attempt to connect and get the document
             Connection conn;
             Document doc;
             try {
@@ -733,16 +745,12 @@ class HandleRequest extends Thread {
             Elements links = doc.select("a[href]");
 
             database_changes_and_references_to_index[0] = indexURLreferences(links, inputLink, refereceURL);
-            System.out.println("DATABASE CHANGES===" + database_changes_and_references_to_index[0]);
             String text = doc.text();
             database_changes_and_references_to_index[1] = indexWords(text, inputLink, indexURL);
 
-
+            System.out.println("ULR SAVED ---->" + url);
             DatabaseHandler handler_db = new DatabaseHandler(refereceURL, indexURL, filesManager);
             handler_db.start();
-            // --------------------------------------------------------------------------HERE SAVE
-            // DATABASE
-            System.out.println("RECOLHEU TUDO O QUE TINHAAAAAA");
 
         } catch (org.jsoup.HttpStatusException | UnknownHostException | IllegalArgumentException e) {
             System.out.println("------------------------ Did not search for website ----------------------");
@@ -770,8 +778,6 @@ class HandleRequest extends Thread {
                 refereceURL.put(linkfound, aux);
                 references_to_send.put(linkfound, aux);
             }
-            // System.out.println(
-            // "References to send-------------------------------------" + references_to_send);
         }
         return references_to_send;
     }
@@ -784,7 +790,6 @@ class HandleRequest extends Thread {
                         new InputStreamReader(new ByteArrayInputStream(text.getBytes(StandardCharsets.UTF_8))));
         String line;
 
-        // Get words and respective count
         while (true) {
             try {
                 if ((line = reader.readLine()) == null) break;
@@ -854,37 +859,6 @@ class DatabaseHandler extends Thread {
         }
     }
 
-}
-
-class ComunicationUrlsQueueRequestHandler {
-
-    BlockingQueue<String> urls_queue;
-    boolean check = false;
-
-    synchronized BlockingQueue<String> web_crawler() {
-        while (!check)
-            try {
-                wait();
-            } catch (InterruptedException e) {
-                System.out.println("interruptedException caught");
-            }
-        System.out.println("Crawling!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-        check = false;
-        notify();
-        return this.urls_queue;
-    }
-
-    synchronized void process_url(BlockingQueue<String> sharedObj) {
-        while (check)
-            try {
-                wait();
-            } catch (InterruptedException e) {
-                System.out.println("interruptedException caught");
-            }
-        check = true;
-        this.urls_queue = sharedObj;
-        notify();
-    }
 }
 
 class ReferencesComparator implements Comparator<Map.Entry<String, Integer>> {
