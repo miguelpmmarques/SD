@@ -38,7 +38,7 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
     }
     // CLIENT RMI METHODS ----------------------------------------------------------------------------------------------
     public void notification(String sms) throws RemoteException{
-        System.out.println(sms);
+        System.out.println("\n\n"+sms);
         thisUser.setIsAdmin();
     }
     // PRIVATE METHODS ------------------------------------------------------------------------------------------
@@ -47,6 +47,12 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
         System.in.read();
     }
 
+    /*
+    * Metodo para proteger quando o utilizador submete um url para o servidor RMI
+    * As protecoes aqui feitas sao, obrigar o utilizador a escrever um '.',
+    * impedir que ele envie um espaco em branco ou so espacos
+    * e caso ele nao colocoque http:// nem https://, nos colocamos http:// por ele :P
+    * */
     private String writeURL() throws IOException {
         String out = "";
         boolean flag;
@@ -67,7 +73,9 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
             out = "http://".concat(out);
         return out;
     }
-    // Method to do avoid writing strings in numbers input
+    /*
+    * Metodo que nao deixa o utilizador escrever letras quando se pede um numero :/
+    * */
     private int getIntProtected() {
         int intKeyboardInput = -1;
         keyboard = new Scanner(System.in);
@@ -79,7 +87,10 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
         }
         return intKeyboardInput;
     }
-    // Protection to name, username and passwords not be only whitespaces
+    /*
+    * Metodo utilizado para ler conjuntos de palavras escritas pelo utilizador
+    * Utilizado para o login, registo e pesquisa :)
+    * */
     private String readInputMessages(String message){
         System.out.print(message+"\n>>> ");
         String input="";
@@ -95,7 +106,9 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
         }while (input.trim().length() == 0);
         return input;
     }
-    // Translate RMI answers
+    /*
+    * Traduz as mensagens do procolo para prints :D
+    * */
     private HashMap<String,String> protocolReaderRMISide(String sms){
         if(sms.equals("SERVERS ARE OFFLINE")){
             System.out.println("MULTICAST SERVERS ARE OFFLINE, TRY AGAIN LATER");
@@ -109,6 +122,9 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
         }
         return myDic;
     }
+    /*
+     * Um print do array :P
+     * */
     private void printArray(String name,HashMap myDic){
         int arraySize = Integer.parseInt((String)myDic.get(name+"_count"));
         if (arraySize == 0)
@@ -117,6 +133,9 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
             System.out.println(i+"º --> "+(String)myDic.get(name+"_"+i));
         }
     }
+    /*
+    * Print do ULR com a descricao, titulo e URL :o
+    * */
     private void printURLS(HashMap myDic)  {
         int arraySize = Integer.parseInt((String)myDic.get("url_count"));
         if (arraySize == 0)
@@ -135,7 +154,10 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
             System.out.println("URL ---> "+url);
         }
     }
-    // SERVER RMI METHODS ------------------------------------------------------------------------------------------
+    /*
+    * Metodo que traduz as opcoes selecionadas do utilizador para metodos remotos
+    * para o servidor RMI
+    * */
     private void retry(int rmiMethod,Object parameter,int replyCounter) throws RemoteException, InterruptedException, NotBoundException {
         HashMap<String,String> myDic;
         try {
@@ -144,11 +166,11 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
                 case rmiLOGIN:
                     myDic = protocolReaderRMISide(this.ucBusca.userLogin((User)parameter));
                     if(myDic.get("status").equals("logged on")){
-                        this.thisUser = new User(((User) parameter).username,((User) parameter).password,this);
+                        this.thisUser = new User(((User) parameter).getUsername(),((User) parameter).getPassword(),this);
                         System.out.println("YOU JUST LOGGED ON");
                         this.mainMenu();
                     } else if(myDic.get("status").equals("logged admin")){
-                        this.thisUser = new User(((User) parameter).username,((User) parameter).password,this);
+                        this.thisUser = new User(((User) parameter).getUsername(),((User) parameter).getPassword(),this);
                         System.out.println("YOU JUST LOGGED ON AS ADMIN");
                         this.adminMenu();
                     }
@@ -225,11 +247,17 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
             retry(rmiMethod,parameter,++replyCounter);
         }
     }
+    /*
+    * Self-explanatory
+    * */
     private void doLogin() throws RemoteException, InterruptedException, NotBoundException {
         String username = this.readInputMessages("Username");
         String password1 = this.readInputMessages("Passwork");
         retry(rmiLOGIN,new User(username,password1,this),REPLYCOUNTER);
     }
+    /*
+     * Self-explanatory
+     * */
     private void doRegistration() throws RemoteException, InterruptedException, NotBoundException {
         String username = this.readInputMessages("Username");
         String password1 = this.readInputMessages("Passwork");
@@ -243,14 +271,16 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
         retry(rmiREGISTRATION,this.thisUser,REPLYCOUNTER);
 
     }
-    // Method where the user inserts the words he wants to research
+    /*
+     * Self-explanatory
+     * */
     private void doSearch() throws RemoteException, InterruptedException, NotBoundException {
         String searchWords = this.readInputMessages("Search");
         if (this.thisUser==null){
             searchWords = "Anonymous "+searchWords;
         }
         else {
-            searchWords = thisUser.username+" "+searchWords;
+            searchWords = thisUser.getUsername()+" "+searchWords;
         }
         String[] searchWordsSplited = searchWords.split("\\s+");
         retry(rmiSEARCH,searchWordsSplited,REPLYCOUNTER);
@@ -258,6 +288,11 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
     }
 
     // MENUS ----------------------------------------------------------------------------------------------------
+    /*
+     * Menu dentro do menu do admin onde este pode ver todos os utilizadores
+     * que se registaram na aplicacao e permite tambem tornar estes mesmos
+     * administradores
+     * */
     private void manageUsersMenu() throws IOException, InterruptedException, NotBoundException {
         while (true){
             System.out.print(VIEWPLAYERSMENU);
@@ -277,6 +312,9 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
 
         }
     }
+    /*
+    * Menu de administracao
+    * */
     private void adminMenu() throws IOException, InterruptedException, NotBoundException {
         while (true){
             System.out.print(ADMIMENU);
@@ -313,6 +351,9 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
             }
         }
     }
+    /*
+     * Menu de utilizadores nao administradores
+     * */
     private void mainMenu() throws IOException, InterruptedException, NotBoundException {
         while (true){
 
@@ -345,6 +386,9 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
             }
         }
     }
+    /*
+     * Menu inicial
+     * */
     private void welcomePage(String sms) throws RemoteException, InterruptedException, NotBoundException {
         while (true){
             System.out.print(sms);
@@ -368,7 +412,7 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
     public static void main(String[] args)  {
         final int TIMEOUT = 15;
         String propFileName = "config.properties";
-        InputStream inputStream = MulticastServer.class.getClassLoader().getResourceAsStream(propFileName);
+        InputStream inputStream = SearchRMIClient.class.getClassLoader().getResourceAsStream(propFileName);
         Properties prop = new Properties();
         try {
             prop.load(inputStream);

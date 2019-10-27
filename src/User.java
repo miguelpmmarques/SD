@@ -3,12 +3,12 @@ import java.util.ArrayList;
 
 public class User implements Serializable {
     //Mudar depois
-    public String username;
-    public String password;
-    public ClientLibrary client;
-    public boolean isAdmin = false;
-    public boolean notify = false;
-    public ArrayList<String> userHistory = new ArrayList<>();
+    private String username;
+    private String password;
+    private ClientLibrary client;
+    private boolean isAdmin = false;
+    private boolean notify = false;
+    private ArrayList<String> userHistory = new ArrayList<>();
     public User(String username,String password) {
         this.username = username;
         this.password = password;
@@ -19,12 +19,15 @@ public class User implements Serializable {
         this.password = password;
         this.client = (ClientLibrary)client;
     }
+    public ArrayList<String> getHistory(){
+        return this.userHistory;
+    }
     public String getUsername(){
         return this.username;
     }
-    public String getPassword(){
-        // subject to change
-        return this.password;
+    public String getPassword(){ return this.password; }
+    public ClientLibrary getClient(){
+        return this.client;
     }
     public void setThis(ClientLibrary client){
         this.client = client;
@@ -34,9 +37,6 @@ public class User implements Serializable {
     }
     public ArrayList<String> getSearchToHistory(){
         return userHistory;
-    }
-    public ClientLibrary getClient(){
-        return this.client;
     }
     public Boolean getIsAdmin(){
         return this.isAdmin;

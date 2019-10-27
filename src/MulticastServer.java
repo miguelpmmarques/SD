@@ -84,7 +84,6 @@ public class MulticastServer extends Thread {
             return;
         }
         TCP_SERVER serverTCP = new TCP_SERVER(Integer.parseInt(prop.getProperty("TCP_PORT_ADDRESS")), prop.getProperty("TCP_IP_ADDRESS"));
-        //int portId = serverTCP.tryConnection();
         int portId = serverTCP.getServersocketPort();
         FilesNamesObject filesManager = serverTCP.getDatabase_object();
         System.out.println("Multicast Id -> " + portId);
@@ -232,7 +231,13 @@ class QueueProcessor extends HandleRequest {
                     }
                 }
             }else {
-                urls_queue = com.web_crawler();
+                synchronized (urls_queue){
+                    try {
+                        urls_queue.wait();
+                    } catch (InterruptedException e) {
+                        System.out.println("Erro no wait");
+                    }
+                }
             }
 
         }
@@ -353,7 +358,7 @@ class HandleRequest extends Thread {
                 case "requestURLbyWord":
                     users = filesManager.loadUsersFromDataBase();
                     for (int i = 0; i < users.size(); i++) {
-                        if (users.get(i).username.equals(myDic.get("user"))) {
+                        if (users.get(i).getUsername().equals(myDic.get("user"))) {
                             users.get(i).addSearchToHistory(returnString("word", myDic));
                             bd = new DatabaseHandler(users, filesManager);
                             bd.start();
@@ -390,14 +395,13 @@ class HandleRequest extends Thread {
                     }
                     responsesTable.put(myDic.get("idRMI"), messageToRMI);
                     return messageToRMI;
-
                 case "requestUSERhistory":
                     User myUser;
                     String message2send;
                     ArrayList<String> myUserHistory;
                     users = filesManager.loadUsersFromDataBase();
                     for (int i = 0; i < users.size(); i++) {
-                        if (users.get(i).username.equals((String) myDic.get("user"))) {
+                        if (users.get(i).getUsername().equals((String) myDic.get("user"))) {
                             myUser = users.get(i);
                             myUserHistory = myUser.getSearchToHistory();
                             message2send = "word_count|" + myUserHistory.size() + ";";
@@ -413,7 +417,7 @@ class HandleRequest extends Thread {
                 case "requestUSERLogin":
                     users = filesManager.loadUsersFromDataBase();
                     for (int i = 0; i < users.size(); i++) {
-                        if (users.get(i).username.equals((String) myDic.get("user")) && users.get(i).password.equals((String) myDic.get("pass"))) {
+                        if (users.get(i).getUsername().equals((String) myDic.get("user")) && users.get(i).getPassword().equals((String) myDic.get("pass"))) {
                             if (users.get(i).getIsAdmin()) {
                                 if (users.get(i).getNotify()) {
                                     users.get(i).setNotify(false);
@@ -443,7 +447,7 @@ class HandleRequest extends Thread {
                         return "id|" + (String) myDic.get("idRMI") + ";type|responseUSERRegist;status|Admin";
                     }
                     for (int i = 0; i < users.size(); i++) {
-                        if (users.get(i).username.equals((String) myDic.get("user"))) {
+                        if (users.get(i).getUsername().equals((String) myDic.get("user"))) {
                             responsesTable.put(myDic.get("idRMI"), "id|" + (String) myDic.get("idRMI") + ";type|responseUSERRegist;status|Failled");
                             return "id|" + (String) myDic.get("idRMI") + ";type|responseUSERRegist;status|Failled";
                         }
@@ -461,7 +465,7 @@ class HandleRequest extends Thread {
 
                     for (int i = 0; i < users.size(); i++) {
                         // Um if para verificar e indicar se e Admin ou nao
-                        messageToSend += "user_" + (i + 1) + "|" + users.get(i).username + " -> ";
+                        messageToSend += "user_" + (i + 1) + "|" + users.get(i).getUsername() + " -> ";
                         if (users.get(i).getIsAdmin()) {
                             messageToSend += "Admin;";
                         } else {
@@ -474,7 +478,7 @@ class HandleRequest extends Thread {
                     users = filesManager.loadUsersFromDataBase();
                     for (int i = 0; i < users.size(); i++) {
 
-                        if (myDic.get("user").equals(users.get(i).username)) {
+                        if (myDic.get("user").equals(users.get(i).getUsername())) {
                             users.get(i).setNotify(true);
                             bd = new DatabaseHandler(users, filesManager);
                             bd.start();
@@ -485,7 +489,7 @@ class HandleRequest extends Thread {
                 case "requestChangeUSERPrivileges":
                     users = filesManager.loadUsersFromDataBase();
                     for (int i = 0; i < users.size(); i++) {
-                        if (myDic.get("user").equals(users.get(i).username)) {
+                        if (myDic.get("user").equals(users.get(i).getUsername())) {
                             if (users.get(i).getIsAdmin())
                             {
                                 responsesTable.put(myDic.get("idRMI"), "id|" + (String) myDic.get("idRMI") + ";type|responseChangeUSERPrivileges;" + "status|User is already an Admin");
@@ -521,7 +525,9 @@ class HandleRequest extends Thread {
                     System.out.println("O QUE TENHO -->" + this.TCP_ADDRESS + ":" + this.myIdByTCP);
                     if (myDic.get("MulticastId").equals(this.TCP_ADDRESS + ":" + this.myIdByTCP)) {
                         urls_queue.put(myDic.get("URL"));
-                        com.process_url(urls_queue);
+                        synchronized (urls_queue){
+                            urls_queue.notify();
+                        }
                         responsesTable.put(myDic.get("idRMI"), "id|" + (String) myDic.get("idRMI") + ";type|responseaddURLbyADMIN;" + "status|Success");
                         return "id|" + (String) myDic.get("idRMI") + ";type|responseaddURLbyADMIN;" + "status|Success";
                     }

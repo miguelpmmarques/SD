@@ -15,7 +15,6 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
     private ArrayList<User> listLogedUsers = new ArrayList<>();
     private String MULTICAST_ADDRESS;
     private Comunication comunication;
-
     private int PORTsend;
     MulticastSocket socketSend;
 
@@ -29,7 +28,12 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
         System.out.println("[CURRENT REQUEST NUMBER] - "+numberRequest);
     }
 
-
+    /*
+    * Metodo que trata de toda a comunicacao com os servidores multicast
+    * Acrescenta o prefixo idRMI com o respetivo indentificador unico para identificar o
+    * pacote recebido.
+    * E aqui se que inicia o protoco RRA feito por nos de raiz
+    * */
     private synchronized String sendToMulticast(String message,int idPack) {
         int MAXNUMBEROFTIMEOUTS = 0;
         message = "idRMI|"+idPack+";"+message;
@@ -66,49 +70,63 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
             }
             MAXNUMBEROFTIMEOUTS++;
             System.out.println("message - "+messageFromMulticast);
-
+        // Verificacao se recebeu o pacote certo, senao volta a enviar a request
         }while (messageFromMulticast.equals("") || id!=idPack);
         return messageFromMulticast;
     }
+    /*
+    * Ligacao inicial de coneccao entre o servidor RMI e o cliente RMI
+    * */
     public String connected(ClientLibrary newUser) throws RemoteException {
         //System.out.println(newUser);
         System.out.println("[USER CONNECTED]");
         return "    --WELCOME--\n\nLogin - 1\nRegister -2\nSearch -3\nExit -4\n>>> ";
     }
+    /*
+     * Self-explanatory
+     * */
     public String userRegistration(User newUser) throws RemoteException, UnknownHostException { // DONE
         String requestToMulticast =  "type|requestUSERRegist;" +
-                "user|"+newUser.username+";" +
-                "pass|"+newUser.password+"";
+                "user|"+newUser.getUsername()+";" +
+                "pass|"+newUser.getPassword()+"";
         // ifs para verificar
         System.out.println("[USER REGISTERED] - "+requestToMulticast);
         listLogedUsers.add(newUser);
         String answer  =sendToMulticast(requestToMulticast,this.numberRequest.incrementAndGet());
         return answer;
     }
+    /*
+     * Self-explanatory
+     * */
     public String userLogin(User newUser) { // DONE
-        String requestToMulticast =  "type|requestUSERLogin;" + "user|"+newUser.username+";" + "pass|"+newUser.password+"";
+        String requestToMulticast =  "type|requestUSERLogin;" + "user|"+newUser.getUsername()+";" + "pass|"+newUser.getPassword()+"";
         System.out.println("[USER LOG IN] - "+requestToMulticast);
         String answer = sendToMulticast(requestToMulticast,this.numberRequest.incrementAndGet());
         char aux = answer.charAt(answer.length()-1);
         if (aux== 'e'){
-            System.out.println(newUser.client);
             try {
-                newUser.client.notification("YOU'RE A ADMIN NOW");
+                newUser.getClient().notification("YOU'RE A ADMIN NOW");
             } catch (Exception e){
-                System.out.println("nao perdebo este erro porque funciona");
+                System.out.println("Notificacao enviada");
             }
 
         }
-        newUser.setThis((ClientLibrary)newUser.client);
+        newUser.setThis((ClientLibrary)newUser.getClient());
         listLogedUsers.add(newUser);
         System.out.println("RESPOSTA -> "+answer);
         return answer;
     }
+    /*
+     * Self-explanatory
+     * */
     public String getHistory(User thisUser) throws RemoteException{
-        String requestToMulticast ="type|requestUSERhistory;" + "user|"+thisUser.username;
+        String requestToMulticast ="type|requestUSERhistory;" + "user|"+thisUser.getUsername();
         String answer = sendToMulticast(requestToMulticast,this.numberRequest.incrementAndGet());
         return answer;
     }
+    /*
+     * Self-explanatory
+     * */
     public String getReferencePages(String url) throws RemoteException{
         String requestToMulticast ="type|requestURLbyRef;" + "URL|"+url;
         String answer = sendToMulticast(requestToMulticast,this.numberRequest.incrementAndGet());
@@ -136,11 +154,11 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
         if (aux == 's'){
             System.out.println(listLogedUsers.size());
             for (int i=0;i<listLogedUsers.size();i++){
-                System.out.println(listLogedUsers.get(i).username);
-                if(listLogedUsers.get(i).username.equals(username)){
+                System.out.println(listLogedUsers.get(i).getUsername());
+                if(listLogedUsers.get(i).getUsername().equals(username)){
                     System.out.println("ENCONTROUUUUUU");
                     try{
-                        listLogedUsers.get(i).client.notification("YOU'RE A ADMIN NOW");
+                        listLogedUsers.get(i).getClient().notification("YOU'RE A ADMIN NOW");
                     } catch (Exception e){
                         System.out.println(sendToMulticast("type|requestSetNotify;user|"+username,this.numberRequest.incrementAndGet()));
                     }
@@ -154,6 +172,9 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
         }
         return answer;
     }
+    /*
+     * Self-explanatory
+     * */
     public String searchWords(String[] words) throws RemoteException{
         System.out.println();
         String requestToMulticast ="type|requestURLbyWord;" +
@@ -166,35 +187,48 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
         String answer = sendToMulticast(requestToMulticast,this.numberRequest.incrementAndGet());
         return answer;
     }
+    /*
+     * Self-explanatory
+     * */
     public String getAllUsers() throws RemoteException{
         String requestToMulticast ="type|requestAllUSERSPrivileges";
         String answer = sendToMulticast(requestToMulticast,this.numberRequest.incrementAndGet());
         return answer;
     }
+    /*
+     * Self-explanatory
+     * */
     public String sendSystemInfo() throws RemoteException{
         String requestToMulticast ="type|requestSYSinfo";
         String answer = sendToMulticast(requestToMulticast,this.numberRequest.incrementAndGet());
         System.out.println(answer);
         return answer;
     }
-    //CHECK MAIN SERVER FUNCIONALITY
+    /*
+     * Metodo que o servidor em backup vai invocando para verificar que o servidor
+     * principal esta a funcionar corretamente
+     * */
     public int checkMe() throws RemoteException{
         return this.numberRequest.intValue();
     }
     // MAIN
     public static void main(String[] args) throws RemoteException {
         String propFileName = "config.properties";
-        InputStream inputStream = MulticastServer.class.getClassLoader().getResourceAsStream(propFileName);
+        InputStream inputStream = SearchRMIServer.class.getClassLoader().getResourceAsStream(propFileName);
         Properties prop = new Properties();
         try {
             prop.load(inputStream);
-
         } catch (Exception e){
             System.out.println("Cannot read properties File");
             return;
         }
         connection(0,prop);
     }
+    /*
+    * Metodo que cria o registry e que inicializa o servidor principaç
+    * Se ja tiver a ser utilizado, e porque ja existe um servidor nesse porto,
+    * o que disperta uma excecao chamando uma funcao onde fica o backup server
+    * */
     public static void connection(int numberRequest,Properties prop) throws RemoteException {
         try {
             Registry r = LocateRegistry.createRegistry(Integer.parseInt(prop.getProperty("REGISTRYPORT")));
@@ -206,7 +240,11 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
             failover(numberRequest,prop);
         }
     }
-
+    /*
+    * Metodo onde esta o backup server faz chamadas remotas ao servidor principal de maneira
+    * a verificar se este esta ativo
+    * Se passarem 10 segundos sem este dar sinais de vida, fica principal.
+    * */
     public static void failover(int numberRequest,Properties prop) throws RemoteException {
         ServerLibrary checkMainServer;
         int faultCounter = 0;
@@ -283,7 +321,6 @@ class MulticastThread extends Thread {
 class Comunication {
     String sharedObj = "";
     boolean sendToTCPclient = false;
-
     synchronized String receiveAnswer() {
 
         while (!sendToTCPclient)
@@ -305,16 +342,10 @@ class Comunication {
                 sendToTCPclient = false;
                 continue;
             }
-
-
         }
-
-
-
         sendToTCPclient = false;
         return this.sharedObj;
     }
-
     synchronized int sendAnswerToRMI(String sharedObj) {
         this.sharedObj = sharedObj;
         String aux =  sharedObj.split("\\;")[0];

@@ -150,7 +150,10 @@ class Connection extends Thread {
             else if (object.type.equals("UPDATE")){
                 urls_queue.addAll(object.urls_queue);
                 updateDataBase(object,false);
-                com.process_url(urls_queue);
+                synchronized (urls_queue){
+                    urls_queue.notify();
+                }
+
             }
         } catch (EOFException e) {
             System.out.println("Client Loggeg out");
@@ -165,12 +168,6 @@ class Connection extends Thread {
         }
     }
     private void updateDataBase(MessageByTCP object,boolean saveUsers){
-        System.out.println("DEBUG INDEX object --------- "+object.indexURL);
-        System.out.println("DEBUG INDEX file --------- "+filesManager.loadDataBase("INDEX"));
-
-        System.out.println("DEBUG REFERENCE object --------- "+object.refereceURL);
-        System.out.println("DEBUG REFERENCE file --------- "+filesManager.loadDataBase("REFERENCE"));
-
         filesManager.saveHashSetsToDataBase("INDEX",mergeDataBases(filesManager.loadDataBase("INDEX"),object.indexURL));
         filesManager.saveHashSetsToDataBase("REFERENCE",mergeDataBases(filesManager.loadDataBase("REFERENCE"),object.refereceURL));
         if (saveUsers)
@@ -198,7 +195,7 @@ class Connection extends Thread {
         for ( User aux_new : new_users ){
             int helper=0;
             for (User aux : existing_users){
-                if(!aux_new.username.equals(aux.username)){
+                if(!aux_new.getUsername().equals(aux.getUsername())){
                     helper++;
                 }
             }
