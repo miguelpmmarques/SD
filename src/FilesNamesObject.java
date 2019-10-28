@@ -1,6 +1,11 @@
 import java.io.*;
 import java.util.*;
 
+// Class responsible for keeping all the information relating to the database files
+// and with all the functions necessary for modifying those files
+// all the methods are synchronized, so that the whole class is, in practice synchronized, and no
+// threads using an object from this class to get or save something into the database
+// can enter unsynchronized
 public class FilesNamesObject {
     String userFile;
     String indexFile;
@@ -10,6 +15,8 @@ public class FilesNamesObject {
          this.referenceFile = "referenceURL"+portId+".tmp";
          this.userFile = "users"+portId+".tmp";
     }
+
+    // self-explanatory
     public synchronized ArrayList<User> loadUsersFromDataBase() {
         File f_users = new File(this.userFile);
         FileInputStream fis;
@@ -32,6 +39,7 @@ public class FilesNamesObject {
         return users_list;
     }
 
+    // loading the indexURL and referenceURL hashsets from database
     public synchronized HashMap<String, HashSet<String>> loadDataBase(String file) {
         String file_name = "";
         switch (file) {
@@ -46,7 +54,6 @@ public class FilesNamesObject {
         FileInputStream fis;
         ObjectInputStream ois;
         HashMap<String, HashSet<String>> map;
-        //System.out.println("FILE NAME __________________>>>"+file_name);
         try {
             fis = new FileInputStream(f_ref);
             ois = new ObjectInputStream(fis);
@@ -63,13 +70,13 @@ public class FilesNamesObject {
         }
         return new HashMap<>();
     }
-    public synchronized void saveUsersToDataBase(ArrayList<User> objectToSave){
 
+    // self-explanatory
+    public synchronized void saveUsersToDataBase(ArrayList<User> objectToSave){
         try {
             FileOutputStream fos = new FileOutputStream(this.userFile);
             ObjectOutputStream oos = new ObjectOutputStream(fos);
             oos.writeObject(objectToSave);
-            //System.out.println("GUARDADO EM FICHEIROS OBJETOS COM SUCESSO -> USERS");
             oos.close();
             fos.close();
         } catch (IOException ex) {
@@ -77,7 +84,7 @@ public class FilesNamesObject {
             ex.printStackTrace();
         }
     }
-    // so far only useful for saving url hashMaps
+    // self-explanatory
     public synchronized void saveHashSetsToDataBase(String typeObject, HashMap<String, HashSet<String>> objectToSave) {
         String file_name = "";
         switch (typeObject) {
@@ -102,17 +109,5 @@ public class FilesNamesObject {
             ex.printStackTrace();
         }
     }
-    public synchronized HashMap<String, HashSet<String>> mergeQueue(Queue<HashMap> queue){
-        HashMap merged_hashmap = new HashMap<>();
-        synchronized (queue){
-            if(! queue.isEmpty()){
-                for (HashMap<String, HashSet<String>> elem : queue){
-                    elem.forEach(
-                            (key, value) -> merged_hashmap.merge( key, value, (v1, v2) -> v1.equals(v2) ? v1 : v1 + "," + v2)
-                    );
-                }
-            }
-        }
-        return merged_hashmap;
-    }
+
 }

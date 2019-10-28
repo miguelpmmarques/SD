@@ -4,6 +4,9 @@ import java.util.*;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.io.Serializable;
+/*
+class objects responsible for sending elements for tcp synchronization of databases and url queues
+ */
 
 class TCP_CLIENT implements Runnable {
     private Thread t;
@@ -21,6 +24,7 @@ class TCP_CLIENT implements Runnable {
     public void run() {
         Socket s = null;
         try {
+            // sending a MessageByTcp type object via tcp
             s = new Socket(ipTCP, this.tcpServerPort);
             System.out.println("SOCKET=" + s);
             ObjectOutputStream objectOutput = new ObjectOutputStream(s.getOutputStream());
@@ -48,8 +52,8 @@ class TCP_CLIENT implements Runnable {
 }
 
 // SERVER---------------------------------------------------------------------
+// tcp server class responsible for listing for tcp messages and connections
 class TCP_SERVER implements Runnable {
-
     private Thread serverThread;
     private ServerSocket s;
     String ip;
@@ -62,8 +66,12 @@ class TCP_SERVER implements Runnable {
         this.serverThread = new Thread(this);
         this.serversocketPort = serversocketPort;
         this.ip = ip;
-        this.database_object = new FilesNamesObject(this.serversocketPort);
+        // using the try connection method to verify if the ip:port combination is already beeing used in the same network. If it is, the port is incremented.
+        // This ip:port combination will be used by the server as its identification, seeing how it is unique
         this.tryConnection();
+        // the FilesNameObject type object beeing used all across the program (because of synchronization concerns) is created here, seeing how this is the firts object to be initialized
+        // both because database syncrhonization at the begining of the program if paramout, but also because the try connection method is necessary to establish the server id
+        this.database_object = new FilesNamesObject(this.serversocketPort);
     }
     public void startTCPServer(){
         serverThread.start();
@@ -88,26 +96,8 @@ class TCP_SERVER implements Runnable {
         return database_object;
     }
 
+    // Atempting a connection to checkout if the tcp port is already occupied-- Used to establish the identification of the server
     public int tryConnection(){
-
-          /*  try {
-            Socket ping = new Socket(this.ip, this.serversocketPort);
-            ping.close();
-            ++this.serversocketPort;
-            tryConnection();
-        } catch (Exception e){
-            try{
-                this.s = new ServerSocket(this.serversocketPort,100, InetAddress.getByName(this.ip));
-            } catch (UnknownHostException ex) {
-                ex.printStackTrace();
-            } catch (IOException ex) {
-                ex.printStackTrace();
-            }
-        }
-        return this.serversocketPort;
-*/
-
-
         try {
             System.out.println(".................ip -> "+this.ip);
             this.s = new ServerSocket(this.serversocketPort,100, InetAddress.getByName(this.ip));
@@ -133,24 +123,29 @@ class TCP_SERVER implements Runnable {
     }
 }
 
+// object to be sent via tcp, for database/urls queue synchronization
 class MessageByTCP implements Serializable {
-    String type;
+    String type; // used to diferentiate the message type.
     HashMap<String, HashSet<String>> refereceURL;
     HashMap<String, HashSet<String>> indexURL;
     ArrayList<User> users_list;
     BlockingQueue<String> urls_queue;
+
+    // If type=="NEW", then the first constructor must be used, for synchronising the databases only, at the beginning of the program.
     public MessageByTCP(String type, HashMap<String, HashSet<String>> refereceURL,HashMap<String, HashSet<String>> indexURL,ArrayList<User> users_list){
         this.type = type;
         this.refereceURL= refereceURL;
         this.indexURL= indexURL;
         this.users_list= users_list;
     }
+    // Otherwise, if type=="UPDATE" the urls_queue will also be shared
     public MessageByTCP(String type, BlockingQueue<String> urls_queue,HashMap<String, HashSet<String>> refereceURL,HashMap<String, HashSet<String>> indexURL){
         this.type = type;
         this.urls_queue = urls_queue;
         this.refereceURL= refereceURL;
         this.indexURL= indexURL;
     }
+    // getter methods
     public String getType(){ return this.type; }
     public ArrayList<User> getUsers(){
         return this.users_list;
@@ -161,17 +156,15 @@ class MessageByTCP implements Serializable {
     public HashMap<String, HashSet<String>> getRefereceURL(){
         return this.refereceURL;
     }
-
+    //-----------------------------------------------
     @Override
     public String toString() {
         return type;
     }
 }
-
-
-
-
-
+/*
+handling the tcp connection everytime a tcp client connects
+ */
 class Connection extends Thread {
     DataInputStream in;
     DataOutputStream out;
