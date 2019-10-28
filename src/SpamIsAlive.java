@@ -24,7 +24,7 @@ class SpamIsAlive extends Thread {
     public void run() {
         while (true) {
             try {
-                Thread.sleep(3000);
+                Thread.sleep(2000);
             } catch (InterruptedException e) {
                 System.out.println("Crashou o sleep");
             }

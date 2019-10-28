@@ -309,7 +309,7 @@ class MulticastThread extends Thread {
             InetAddress group = InetAddress.getByName(MULTICAST_ADDRESS);
             aSocket.joinGroup(group);
             while (true) {
-                byte[] buffer = new byte[5000];
+                byte[] buffer = new byte[8000];
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                 aSocket.receive(packet);
                 getSms = new String(packet.getData(),0,packet.getLength());
