@@ -4,15 +4,15 @@ import java.util.*;
 
 public interface ServerLibrary extends Remote {
     public String connected(ClientLibrary newUser) throws RemoteException;
-    public String userRegistration(User newUser) throws RemoteException, UnknownHostException;
-    public String userLogin(User newUser) throws RemoteException, InterruptedException;
-    public String searchWords(String[] words) throws RemoteException;
+    public HashMap<String,String> userRegistration(User newUser) throws RemoteException, UnknownHostException;
+    public HashMap<String,String> userLogin(User newUser) throws RemoteException, InterruptedException;
+    public HashMap<String,String> searchWords(String[] words) throws RemoteException;
     public int checkMe() throws RemoteException;
-    public String sendSystemInfo() throws RemoteException;
-    public String addURLbyADMIN(String url) throws RemoteException;
-    public String getAllUsers() throws RemoteException;
-    public String getReferencePages(String url) throws RemoteException;
-    public String getHistory(User thisUser) throws RemoteException;
-    public String changeUserPrivileges(String username) throws RemoteException;
+    public HashMap<String,String> sendSystemInfo() throws RemoteException;
+    public HashMap<String,String> addURLbyADMIN(String url) throws RemoteException;
+    public HashMap<String,String> getAllUsers() throws RemoteException;
+    public HashMap<String,String> getReferencePages(String url) throws RemoteException;
+    public HashMap<String,String> getHistory(User thisUser) throws RemoteException;
+    public HashMap<String,String> changeUserPrivileges(String username) throws RemoteException;
     }
 

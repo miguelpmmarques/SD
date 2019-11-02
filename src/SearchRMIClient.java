@@ -109,22 +109,6 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
         return input;
     }
     /*
-    * Traduz as mensagens do procolo para prints :D
-    * */
-    private HashMap<String,String> protocolReaderRMISide(String sms){
-        if(sms.equals("SERVERS ARE OFFLINE")){
-            System.out.println("MULTICAST SERVERS ARE OFFLINE, TRY AGAIN LATER");
-            System.exit(0);
-        }
-        HashMap<String,String> myDic = new HashMap();
-        String[] splitedsms = sms.split("\\;");
-        for (int i =0;i<splitedsms.length;i++){
-            String[] splitedsplitedsms = splitedsms[i].split("\\|");
-            myDic.put((String)splitedsplitedsms[0],(String)splitedsplitedsms[1]);
-        }
-        return myDic;
-    }
-    /*
      * Um print do array :P
      * */
     private void printArray(String name,HashMap myDic){
@@ -166,7 +150,7 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
             this.ucBusca=(ServerLibrary) LocateRegistry.getRegistry(prop.getProperty("REGISTRYIP"), Integer.parseInt(prop.getProperty("REGISTRYPORT"))).lookup(prop.getProperty("LOOKUP"));
             switch (rmiMethod){
                 case rmiLOGIN:
-                    myDic = protocolReaderRMISide(this.ucBusca.userLogin((User)parameter));
+                    myDic = this.ucBusca.userLogin((User)parameter);
                     if(myDic.get("status").equals("logged on")){
                         this.thisUser = new User(((User) parameter).getUsername(),((User) parameter).getPassword(),this);
                         System.out.println("YOU JUST LOGGED ON");
@@ -182,7 +166,7 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
                     }
                     break;
                 case rmiREGISTRATION:
-                    myDic = protocolReaderRMISide(this.ucBusca.userRegistration((User)parameter));
+                    myDic = this.ucBusca.userRegistration((User)parameter);
                     if(myDic.get("status").equals("Success")){
                         System.out.println("YOU JUST LOGGED ON");
                         this.mainMenu();
@@ -196,7 +180,7 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
                     }
                     break;
                 case rmiSEARCH:
-                    myDic = protocolReaderRMISide(this.ucBusca.searchWords((String[]) parameter));
+                    myDic = this.ucBusca.searchWords((String[]) parameter);
                     System.out.println(" --- Resultados de pesquisa ---\n\n");
                     printURLS(myDic);
                     pressToContinue();
@@ -205,7 +189,7 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
                     this.ucBusca.addURLbyADMIN((String) parameter);
                     break;
                 case rmiGETSYSTEMINFO:
-                    myDic = protocolReaderRMISide(this.ucBusca.sendSystemInfo());
+                    myDic = this.ucBusca.sendSystemInfo();
                     System.out.println("MULTICAST SERVERS ACTIVE");
                     printArray("activeMulticast",myDic);
                     System.out.println("\nTOP 10 IMPORTANT PAGES");
@@ -215,22 +199,22 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
                     pressToContinue();
                     break;
                 case rmiUSERSLIST:
-                    myDic = protocolReaderRMISide(this.ucBusca.getAllUsers());
+                    myDic = this.ucBusca.getAllUsers();
                     printArray("user",myDic);
                     pressToContinue();
                     break;
                 case rmiRELATEDPAGES:
-                    myDic = protocolReaderRMISide(this.ucBusca.getReferencePages((String) parameter));
+                    myDic = this.ucBusca.getReferencePages((String) parameter);
                     printArray("url",myDic);
                     pressToContinue();
                     return;
                 case rmiHISTORY:
-                    myDic = protocolReaderRMISide(this.ucBusca.getHistory((User)parameter));
+                    myDic = this.ucBusca.getHistory((User)parameter);
                     printArray("word",myDic);
                     pressToContinue();
                     break;
                 case rmiCHANGEUSERPRIVILEGES:
-                    myDic = protocolReaderRMISide(this.ucBusca.changeUserPrivileges((String) parameter));
+                    myDic = this.ucBusca.changeUserPrivileges((String) parameter);
                     System.out.println(myDic.get("status"));
                     return;
                 default:

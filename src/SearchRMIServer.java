@@ -74,6 +74,24 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
         }while (messageFromMulticast.equals("") || id!=idPack);
         return messageFromMulticast;
     }
+
+    /*
+     * Traduz as mensagens do procolo para prints :D
+     * */
+    private HashMap<String,String> protocolReaderRMISide(String sms){
+        if(sms.equals("SERVERS ARE OFFLINE")){
+            System.out.println("MULTICAST SERVERS ARE OFFLINE, TRY AGAIN LATER");
+            System.exit(0);
+        }
+        HashMap<String,String> myDic = new HashMap();
+        String[] splitedsms = sms.split("\\;");
+        for (int i =0;i<splitedsms.length;i++){
+            String[] splitedsplitedsms = splitedsms[i].split("\\|");
+            myDic.put((String)splitedsplitedsms[0],(String)splitedsplitedsms[1]);
+        }
+        return myDic;
+    }
+
     /*
     * Ligacao inicial de coneccao entre o servidor RMI e o cliente RMI
     * */
@@ -85,7 +103,7 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
     /*
      * Self-explanatory
      * */
-    public String userRegistration(User newUser) throws RemoteException, UnknownHostException { // DONE
+    public HashMap<String,String> userRegistration(User newUser) throws RemoteException, UnknownHostException { // DONE
         String requestToMulticast =  "type|requestUSERRegist;" +
                 "user|"+newUser.getUsername()+";" +
                 "pass|"+newUser.getPassword()+"";
@@ -95,12 +113,12 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
             listLogedUsers.add(newUser);
         }
         String answer  =sendToMulticast(requestToMulticast,this.numberRequest.incrementAndGet());
-        return answer;
+        return protocolReaderRMISide(answer);
     }
     /*
      * Self-explanatory
      * */
-    public String userLogin(User newUser) { // DONE
+    public HashMap<String,String> userLogin(User newUser) { // DONE
         String requestToMulticast =  "type|requestUSERLogin;" + "user|"+newUser.getUsername()+";" + "pass|"+newUser.getPassword()+"";
         System.out.println("[USER LOG IN] - "+requestToMulticast);
         String answer = sendToMulticast(requestToMulticast,this.numberRequest.incrementAndGet());
@@ -118,30 +136,30 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
             listLogedUsers.add(newUser);
         }
         System.out.println("RESPOSTA -> "+answer);
-        return answer;
+        return protocolReaderRMISide(answer);
     }
     /*
      * Self-explanatory
      * */
-    public String getHistory(User thisUser) throws RemoteException{
+    public HashMap<String,String> getHistory(User thisUser) throws RemoteException{
         String requestToMulticast ="type|requestUSERhistory;" + "user|"+thisUser.getUsername();
         String answer = sendToMulticast(requestToMulticast,this.numberRequest.incrementAndGet());
-        return answer;
+        return protocolReaderRMISide(answer);
     }
     /*
      * Self-explanatory
      * */
-    public String getReferencePages(String url) throws RemoteException{
+    public HashMap<String,String> getReferencePages(String url) throws RemoteException{
         String requestToMulticast ="type|requestURLbyRef;" + "URL|"+url;
         String answer = sendToMulticast(requestToMulticast,this.numberRequest.incrementAndGet());
         System.out.println("REturn -> "+answer);
-        return "List of referenced Pages -> "+answer;
+        return protocolReaderRMISide(answer);
     }
     /*
     * Metodo que caso nao esteja a ser feito web crawling, inicializa-o, e se ja estiver a ser feito,
     * acrescenta o url na queue de urls prontos a ser processados
     * */
-    public String addURLbyADMIN(String url) throws RemoteException{
+    public HashMap<String,String> addURLbyADMIN(String url) throws RemoteException{
         String requestToMulticast ="type|getMulticastList;";
         String answer = sendToMulticast(requestToMulticast,this.numberRequest.incrementAndGet());
 
@@ -153,13 +171,13 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
         requestToMulticast ="type|requestaddURLbyADMIN;" + "URL|"+url+";MulticastId|"+choosenMulticast;
         System.out.println("Admin added ULR -> "+requestToMulticast);
         answer = sendToMulticast(requestToMulticast,this.numberRequest.incrementAndGet());
-        return answer;
+        return protocolReaderRMISide(answer);
     }
     /*
     * Metodo que permite o Administrador tornar outros utilizadores administradores
     * Trata tambem das notificacoes, tanto online como offline, avisando o Multicast
     * */
-    public String changeUserPrivileges(String username) throws RemoteException{
+    public HashMap<String,String> changeUserPrivileges(String username) throws RemoteException{
         String requestToMulticast ="type|requestChangeUSERPrivileges;" + "user|"+username;
         System.out.println(requestToMulticast);
         String answer = sendToMulticast(requestToMulticast,this.numberRequest.incrementAndGet());
@@ -175,19 +193,19 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
                             System.out.println(sendToMulticast("type|requestSetNotify;user|"+username,this.numberRequest.incrementAndGet()));
                         }
                         finally {
-                            return answer;
+                            return protocolReaderRMISide(answer);
                         }
                     }
                 }
             }
             System.out.println(sendToMulticast("type|requestSetNotify;user|"+username,this.numberRequest.incrementAndGet()));
         }
-        return answer;
+        return protocolReaderRMISide(answer);
     }
     /*
      * Self-explanatory
      * */
-    public String searchWords(String[] words) throws RemoteException{
+    public HashMap<String,String> searchWords(String[] words) throws RemoteException{
         System.out.println();
         String requestToMulticast ="type|requestURLbyWord;" +
                 "user|"+words[0]+
@@ -197,24 +215,24 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
         }
         System.out.println("[USER SEARCH] - "+requestToMulticast);
         String answer = sendToMulticast(requestToMulticast,this.numberRequest.incrementAndGet());
-        return answer;
+        return protocolReaderRMISide(answer);
     }
     /*
      * Self-explanatory
      * */
-    public String getAllUsers() throws RemoteException{
+    public HashMap<String,String> getAllUsers() throws RemoteException{
         String requestToMulticast ="type|requestAllUSERSPrivileges";
         String answer = sendToMulticast(requestToMulticast,this.numberRequest.incrementAndGet());
-        return answer;
+        return protocolReaderRMISide(answer);
     }
     /*
      * Self-explanatory
      * */
-    public String sendSystemInfo() throws RemoteException{
+    public HashMap<String,String> sendSystemInfo() throws RemoteException{
         String requestToMulticast ="type|requestSYSinfo";
         String answer = sendToMulticast(requestToMulticast,this.numberRequest.incrementAndGet());
         System.out.println(answer);
-        return answer;
+        return protocolReaderRMISide(answer);
     }
     /*
      * Metodo que o servidor em backup vai invocando para verificar que o servidor
