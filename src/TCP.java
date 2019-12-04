@@ -4,6 +4,7 @@ import java.util.*;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.io.Serializable;
+import RMISERVER.*;
 /*
 class objects responsible for sending elements for tcp synchronization of databases and url queues
  */

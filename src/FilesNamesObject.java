@@ -1,6 +1,6 @@
 import java.io.*;
 import java.util.*;
-
+import RMISERVER.*;
 // Class responsible for keeping all the information relating to the database files
 // and with all the functions necessary for modifying those files
 // all the methods are synchronized, so that the whole class is, in practice synchronized, and no

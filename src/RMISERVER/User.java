@@ -1,4 +1,6 @@
-import java.io.*;
+package RMISERVER;
+
+import java.io.Serializable;
 import java.util.ArrayList;
 
 public class User implements Serializable {
@@ -9,12 +11,12 @@ public class User implements Serializable {
     private boolean isAdmin = false;
     private boolean notify = false;
     private ArrayList<String> userHistory = new ArrayList<>();
-    public User(String username,String password) {
+    public User(String username, String password) {
         this.username = username;
         this.password = password;
     }
 
-    public User(String username,String password,ClientLibrary client) {
+    public User(String username, String password, ClientLibrary client) {
         this.username = username;
         this.password = password;
         this.client = (ClientLibrary)client;

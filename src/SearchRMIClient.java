@@ -3,12 +3,12 @@ import java.rmi.*;
 import java.rmi.registry.*;
 import java.rmi.server.*;
 import java.util.*;
+
+import RMISERVER.*;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
-import org.jsoup.nodes.Element;
-import org.jsoup.select.Elements;
 
-public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrary{
+public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrary {
     //------ Remote Methods ---------
     static private final int REPLYCOUNTER = 0;
     static private final int REPLYCOUNTERTIMEOUT = 16;

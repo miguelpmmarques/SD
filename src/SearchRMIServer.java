@@ -1,3 +1,5 @@
+import RMISERVER.*;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.*;
@@ -141,7 +143,7 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
     /*
      * Self-explanatory
      * */
-    public HashMap<String,String> getHistory(User thisUser) throws RemoteException{
+    public HashMap<String,String> getHistory(User thisUser){
         String requestToMulticast ="type|requestUSERhistory;" + "user|"+thisUser.getUsername();
         String answer = sendToMulticast(requestToMulticast,this.numberRequest.incrementAndGet());
         return protocolReaderRMISide(answer);

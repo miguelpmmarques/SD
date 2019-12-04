@@ -1,3 +1,6 @@
+package RMISERVER;
+
+
 import java.net.UnknownHostException;
 import java.rmi.*;
 import java.util.*;
