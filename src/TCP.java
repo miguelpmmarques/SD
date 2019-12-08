@@ -129,22 +129,25 @@ class MessageByTCP implements Serializable {
     String type; // used to diferentiate the message type.
     HashMap<String, HashSet<String>> refereceURL;
     HashMap<String, HashSet<String>> indexURL;
+    HashMap<String, HashSet<String>> descriptionTitle;
     ArrayList<User> users_list;
     BlockingQueue<String> urls_queue;
 
     // If type=="NEW", then the first constructor must be used, for synchronising the databases only, at the beginning of the program.
-    public MessageByTCP(String type, HashMap<String, HashSet<String>> refereceURL,HashMap<String, HashSet<String>> indexURL,ArrayList<User> users_list){
+    public MessageByTCP(String type, HashMap<String, HashSet<String>> refereceURL,HashMap<String, HashSet<String>> indexURL,HashMap<String, HashSet<String>> descriptionTitle, ArrayList<User> users_list){
         this.type = type;
         this.refereceURL= refereceURL;
         this.indexURL= indexURL;
         this.users_list= users_list;
+        this.descriptionTitle = descriptionTitle;
     }
     // Otherwise, if type=="UPDATE" the urls_queue will also be shared
-    public MessageByTCP(String type, BlockingQueue<String> urls_queue,HashMap<String, HashSet<String>> refereceURL,HashMap<String, HashSet<String>> indexURL){
+    public MessageByTCP(String type, BlockingQueue<String> urls_queue,HashMap<String, HashSet<String>> refereceURL,HashMap<String, HashSet<String>> indexURL, HashMap<String, HashSet<String>> descriptionTitle){
         this.type = type;
         this.urls_queue = urls_queue;
         this.refereceURL= refereceURL;
         this.indexURL= indexURL;
+        this.descriptionTitle = descriptionTitle;
     }
     // getter methods
     public String getType(){ return this.type; }
@@ -157,6 +160,7 @@ class MessageByTCP implements Serializable {
     public HashMap<String, HashSet<String>> getRefereceURL(){
         return this.refereceURL;
     }
+    public HashMap<String, HashSet<String>> getDescriptionTitle(){ return this.descriptionTitle; }
     //-----------------------------------------------
     @Override
     public String toString() {
@@ -218,6 +222,7 @@ class Connection extends Thread {
     private void updateDataBase(MessageByTCP object,boolean saveUsers){
         filesManager.saveHashSetsToDataBase("INDEX",mergeDataBases(filesManager.loadDataBase("INDEX"),object.indexURL));
         filesManager.saveHashSetsToDataBase("REFERENCE",mergeDataBases(filesManager.loadDataBase("REFERENCE"),object.refereceURL));
+        filesManager.saveHashSetsToDataBase("DESCRIPTION",mergeDataBases(filesManager.loadDataBase("DESCRIPTION"),object.descriptionTitle));
         if (saveUsers)
             filesManager.saveUsersToDataBase(merge_users(filesManager.loadUsersFromDataBase(),object.users_list));
     }

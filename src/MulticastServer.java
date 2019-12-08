@@ -210,7 +210,7 @@ class QueueProcessor extends HandleRequest {
                     HashMap references =
                             indexes_and_references_to_send_or_add[
                                     0]; // the hashmap of references to distribute over the other multicast servers
-
+                    HashMap descriptionTitle = indexes_and_references_to_send_or_add[2];
                     Set references_set = references.keySet();
                     // adding all found references to queue ---- later a portion of these will be passed by
                     // tcp to the other server
@@ -238,7 +238,7 @@ class QueueProcessor extends HandleRequest {
                         String[] ip_port = ((String) pair.getKey()).split(":");
                         // sending the database changes and a portion of the references to the other multicast
                         // servers
-                        MessageByTCP messageToTCP = new MessageByTCP("UPDATE", aux, references, index);
+                        MessageByTCP messageToTCP = new MessageByTCP("UPDATE", aux, references, index, descriptionTitle);
                         new TCP_CLIENT(Integer.parseInt(ip_port[1]), messageToTCP, ip_port[0]);
                     }
                 }
@@ -332,6 +332,7 @@ class HandleRequest extends Thread {
         String messageToRMI = "";
         System.out.println("MENSAGEM - " + sms);
         HashMap<String, String> myDic = new HashMap<>();
+        HashMap<String, HashSet<String>> descriptionTitle = this.filesManager.loadDataBase("DESCRIPTION");
         for (int i = 0; i < splitedsms.length; i++) {
             String[] splitedsplitedsms = splitedsms[i].split("\\|");
             myDic.put(splitedsplitedsms[0], splitedsplitedsms[1]);
@@ -362,6 +363,7 @@ class HandleRequest extends Thread {
                                         "NEW",
                                         this.filesManager.loadDataBase("REFERENCE"),
                                         this.filesManager.loadDataBase("INDEX"),
+                                        descriptionTitle,
                                         this.filesManager.loadUsersFromDataBase());
                         new TCP_CLIENT(Integer.parseInt(myDic.get("myid")), messageToTCP, myDic.get("myIp"));
                     }
@@ -416,7 +418,16 @@ class HandleRequest extends Thread {
                     messageToRMI =
                             "id|" + myDic.get("idRMI") + ";type|responseURLbyWord;url_count|" + urls.length + ";";
                     for (int i = 0; i < urls.length; i++) {
-                        messageToRMI += "url_" + (i + 1) + "|" + urls[i] + ";";
+                        HashSet<String> description_title = descriptionTitle.get(urls[i]);
+                        String description = "NO DESCRIPTION AVAILABLE";
+                        String title = "NO TITLE AVAILABLE";
+                        if (description_title!=null){
+                            description =(String)description_title.toArray()[1];
+                            description = description.replace(";", ",");
+                            title = (String)description_title.toArray()[0];
+                            title = title.replace(";", ",");
+                        }
+                        messageToRMI += "url_" + (i + 1) + "|" + urls[i] + "*oo#&"+title+"*oo#&"+description+";";
                     }
                     synchronized (responsesTable) {
                         responsesTable.put(myDic.get("idRMI"), messageToRMI);
@@ -444,7 +455,20 @@ class HandleRequest extends Thread {
                                         + ";";
                         int k = 1;
                         for (String elem : referencesFound) {
-                            messageToRMI += "url_" + k + "|" + elem + ";";
+
+                            HashSet<String> description_title = descriptionTitle.get(elem);
+                            String description = "NO DESCRIPTION AVAILABLE";
+                            String title = "NO TITLE AVAILABLE";
+                            if (description_title!=null){
+                                System.out.println("DESCRIPTION_TITLE==="+description_title);
+                                System.out.println("DESCRIPTION_TITLE_ARRAY==="+ Arrays.toString(description_title.toArray()));
+                                description =(String)description_title.toArray()[1];
+                                description = description.replace(";", ",");
+                                title = (String)description_title.toArray()[0];
+                                title = title.replace(";", ",");
+                            }
+                            messageToRMI += "url_" + k + "|" + elem + "*oo#&"+title+"*oo#&"+description+";";
+                            System.out.println("MESSAGE TO RMI BT REF===="+ messageToRMI);
                             k++;
                         }
                     }
@@ -845,6 +869,7 @@ class HandleRequest extends Thread {
     public Object[] searchWords(String[] words) {
         HashMap<String, HashSet<String>> refereceURL;
         HashMap<String, HashSet<String>> indexURL;
+        HashMap<String, HashSet<String>> descriptionTitle;
         ArrayList<HashMap<String, Integer>> aux_array = new ArrayList<>();
 
         // loading the database
@@ -913,19 +938,30 @@ class HandleRequest extends Thread {
     public HashMap[] crawl(String url) {
         HashMap<String, HashSet<String>> refereceURL;
         HashMap<String, HashSet<String>> indexURL;
-        HashMap[] database_changes_and_references_to_index = new HashMap[2];
+        HashMap<String, HashSet<String>> descriptionTitle;
+        HashMap[] database_changes_and_references_to_index = new HashMap[3];
         refereceURL = this.filesManager.loadDataBase("REFERENCE");
         indexURL = this.filesManager.loadDataBase("INDEX");
+        descriptionTitle = this.filesManager.loadDataBase("DESCRIPTION");
         try {
 
             String inputLink = url;
 
             Connection conn;
             Document doc;
+            String title="";
+            String description="";
             try {
                 conn = (Connection) Jsoup.connect(inputLink);
                 conn.timeout(5000);
                 doc = conn.get();
+                title = doc.title();
+                try{
+                    description = doc.select("meta[name=description]").get(0).attr("content");
+
+                }catch(java.lang.IndexOutOfBoundsException e){
+                    description = "NO DESCRIPTION AVAILABLE";
+                }
             } catch (IllegalArgumentException e) {
                 System.out.println("URL not found by Jsoup");
                 return new HashMap[0];
@@ -937,9 +973,11 @@ class HandleRequest extends Thread {
                     indexURLreferences(links, inputLink, refereceURL);
             String text = doc.text();
             database_changes_and_references_to_index[1] = indexWords(text, inputLink, indexURL);
+            database_changes_and_references_to_index[2] = indexDescriptionsAndTitles(description, title, inputLink, descriptionTitle);
+
 
             System.out.println("ULR SAVED ---->" + url);
-            DatabaseHandler handler_db = new DatabaseHandler(refereceURL, indexURL, filesManager);
+            DatabaseHandler handler_db = new DatabaseHandler(refereceURL, indexURL, descriptionTitle, filesManager);
             handler_db.start();
 
         } catch (org.jsoup.HttpStatusException | UnknownHostException | IllegalArgumentException e) {
@@ -1012,6 +1050,15 @@ class HandleRequest extends Thread {
             e.printStackTrace();
         }
         return indexes_to_send;
+    }
+
+
+    public HashMap<String, HashSet<String>> indexDescriptionsAndTitles(String description, String title, String inputLink, HashMap<String, HashSet<String>> descriptionTitle){
+        HashSet<String> descTitle = new HashSet<>();
+        descTitle.add(title);
+        descTitle.add(description);
+        descriptionTitle.put(inputLink, descTitle);
+        return descriptionTitle;
     }
 }
 

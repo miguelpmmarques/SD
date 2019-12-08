@@ -10,10 +10,12 @@ public class FilesNamesObject {
     String userFile;
     String indexFile;
     String referenceFile;
+    String descriptionTitleFile;
     public FilesNamesObject(int portId){
          this.indexFile = "indexURL"+portId+".tmp";;
          this.referenceFile = "referenceURL"+portId+".tmp";
          this.userFile = "users"+portId+".tmp";
+         this.descriptionTitleFile = "descriptionTitle"+portId+".tmp";
     }
 
     // self-explanatory
@@ -48,6 +50,9 @@ public class FilesNamesObject {
                 break;
             case "REFERENCE":
                 file_name = this.referenceFile;
+                break;
+            case "DESCRIPTION":
+                file_name = this.descriptionTitleFile;
                 break;
         }
         File f_ref = new File(file_name);
@@ -93,6 +98,9 @@ public class FilesNamesObject {
                 break;
             case "REFERENCE":
                 file_name = this.referenceFile;
+                break;
+            case "DESCRIPTION":
+                file_name = this.descriptionTitleFile;
                 break;
         }
 
