@@ -332,7 +332,7 @@ class HandleRequest extends Thread {
         String messageToRMI = "";
         System.out.println("MENSAGEM - " + sms);
         HashMap<String, String> myDic = new HashMap<>();
-        HashMap<String, HashSet<String>> descriptionTitle = this.filesManager.loadDataBase("DESCRIPTION");
+        HashMap<String, ArrayList<String>> descriptionTitle = this.filesManager.loadDataBaseDescriptions();
         for (int i = 0; i < splitedsms.length; i++) {
             String[] splitedsplitedsms = splitedsms[i].split("\\|");
             myDic.put(splitedsplitedsms[0], splitedsplitedsms[1]);
@@ -418,7 +418,7 @@ class HandleRequest extends Thread {
                     messageToRMI =
                             "id|" + myDic.get("idRMI") + ";type|responseURLbyWord;url_count|" + urls.length + ";";
                     for (int i = 0; i < urls.length; i++) {
-                        HashSet<String> description_title = descriptionTitle.get(urls[i]);
+                        ArrayList<String> description_title = descriptionTitle.get(urls[i]);
                         String description = "NO DESCRIPTION AVAILABLE";
                         String title = "NO TITLE AVAILABLE";
                         if (description_title!=null){
@@ -456,7 +456,7 @@ class HandleRequest extends Thread {
                         int k = 1;
                         for (String elem : referencesFound) {
 
-                            HashSet<String> description_title = descriptionTitle.get(elem);
+                            ArrayList<String> description_title = descriptionTitle.get(elem);
                             String description = "NO DESCRIPTION AVAILABLE";
                             String title = "NO TITLE AVAILABLE";
                             if (description_title!=null){
@@ -869,7 +869,7 @@ class HandleRequest extends Thread {
     public Object[] searchWords(String[] words) {
         HashMap<String, HashSet<String>> refereceURL;
         HashMap<String, HashSet<String>> indexURL;
-        HashMap<String, HashSet<String>> descriptionTitle;
+        HashMap<String, ArrayList<String>> descriptionTitle;
         ArrayList<HashMap<String, Integer>> aux_array = new ArrayList<>();
 
         // loading the database
@@ -938,24 +938,27 @@ class HandleRequest extends Thread {
     public HashMap[] crawl(String url) {
         HashMap<String, HashSet<String>> refereceURL;
         HashMap<String, HashSet<String>> indexURL;
-        HashMap<String, HashSet<String>> descriptionTitle;
+        HashMap<String, ArrayList<String>> descriptionTitle;
         HashMap[] database_changes_and_references_to_index = new HashMap[3];
         refereceURL = this.filesManager.loadDataBase("REFERENCE");
         indexURL = this.filesManager.loadDataBase("INDEX");
-        descriptionTitle = this.filesManager.loadDataBase("DESCRIPTION");
+        descriptionTitle = this.filesManager.loadDataBaseDescriptions();
         try {
 
             String inputLink = url;
 
             Connection conn;
             Document doc;
-            String title="";
-            String description="";
+            String title="NO TITLE AVAILABLE";
+            String description="NO DESCRIPTION AVAILABLE";
             try {
                 conn = (Connection) Jsoup.connect(inputLink);
                 conn.timeout(5000);
                 doc = conn.get();
                 title = doc.title();
+                if (title.trim().equals("")){
+                    title="NO TITLE AVAILABLE";
+                }
                 try{
                     description = doc.select("meta[name=description]").get(0).attr("content");
 
@@ -1053,8 +1056,8 @@ class HandleRequest extends Thread {
     }
 
 
-    public HashMap<String, HashSet<String>> indexDescriptionsAndTitles(String description, String title, String inputLink, HashMap<String, HashSet<String>> descriptionTitle){
-        HashSet<String> descTitle = new HashSet<>();
+    public HashMap<String, ArrayList<String>> indexDescriptionsAndTitles(String description, String title, String inputLink, HashMap<String, ArrayList<String>> descriptionTitle){
+        ArrayList<String> descTitle = new ArrayList<>();
         descTitle.add(title);
         descTitle.add(description);
         descriptionTitle.put(inputLink, descTitle);

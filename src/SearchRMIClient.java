@@ -179,6 +179,7 @@ public class SearchRMIClient extends UnicastRemoteObject implements ClientLibrar
                 case rmiSEARCH:
                     myDic = this.ucBusca.searchWords((String[]) parameter);
                     System.out.println(" --- Resultados de pesquisa ---\n\n");
+          System.out.println("DIC===" +myDic);
                     printURLS(myDic);
                     pressToContinue();
                     break;

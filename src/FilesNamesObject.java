@@ -51,9 +51,6 @@ public class FilesNamesObject {
             case "REFERENCE":
                 file_name = this.referenceFile;
                 break;
-            case "DESCRIPTION":
-                file_name = this.descriptionTitleFile;
-                break;
         }
         File f_ref = new File(file_name);
         FileInputStream fis;
@@ -75,6 +72,29 @@ public class FilesNamesObject {
         }
         return new HashMap<>();
     }
+    public synchronized HashMap<String, ArrayList<String>> loadDataBaseDescriptions() {
+
+        File f_ref = new File(this.descriptionTitleFile);
+        FileInputStream fis;
+        ObjectInputStream ois;
+        HashMap<String, ArrayList<String>> map;
+        try {
+            fis = new FileInputStream(f_ref);
+            ois = new ObjectInputStream(fis);
+            map = (HashMap<String, ArrayList<String>>) ois.readObject();
+            return map;
+
+        } catch (FileNotFoundException ex) {
+            System.out.println("Ficheiro ainda nao existe");
+            return new HashMap<>();
+        } catch (IOException e) {
+            System.out.println("ERROR READING FILE --> "+this.descriptionTitleFile);
+        } catch (ClassNotFoundException e) {
+            System.out.println("ERROR FIDING CLASS FROM FILE --> "+this.descriptionTitleFile);
+        }
+        return new HashMap<>();
+    }
+
 
     // self-explanatory
     public synchronized void saveUsersToDataBase(ArrayList<User> objectToSave){
@@ -110,6 +130,19 @@ public class FilesNamesObject {
             oos.writeObject(objectToSave);
 
             //System.out.println("GUARDADO EM FICHEIROS OBJETOS COM SUCESSO -> " + typeObject);
+            oos.close();
+            fos.close();
+        } catch (IOException ex) {
+            System.out.println("Erro a escrever para o ficheiro.");
+            ex.printStackTrace();
+        }
+    }
+
+    public synchronized void saveHashSetsToDataBaseDescription(String typeObject, HashMap<String, ArrayList<String>> objectToSave) {
+        try {
+            FileOutputStream fos = new FileOutputStream(this.descriptionTitleFile);
+            ObjectOutputStream oos = new ObjectOutputStream(fos);
+            oos.writeObject(objectToSave);
             oos.close();
             fos.close();
         } catch (IOException ex) {

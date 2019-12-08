@@ -129,12 +129,12 @@ class MessageByTCP implements Serializable {
     String type; // used to diferentiate the message type.
     HashMap<String, HashSet<String>> refereceURL;
     HashMap<String, HashSet<String>> indexURL;
-    HashMap<String, HashSet<String>> descriptionTitle;
+    HashMap<String, ArrayList<String>> descriptionTitle;
     ArrayList<User> users_list;
     BlockingQueue<String> urls_queue;
 
     // If type=="NEW", then the first constructor must be used, for synchronising the databases only, at the beginning of the program.
-    public MessageByTCP(String type, HashMap<String, HashSet<String>> refereceURL,HashMap<String, HashSet<String>> indexURL,HashMap<String, HashSet<String>> descriptionTitle, ArrayList<User> users_list){
+    public MessageByTCP(String type, HashMap<String, HashSet<String>> refereceURL,HashMap<String, HashSet<String>> indexURL,HashMap<String, ArrayList<String>> descriptionTitle, ArrayList<User> users_list){
         this.type = type;
         this.refereceURL= refereceURL;
         this.indexURL= indexURL;
@@ -142,7 +142,7 @@ class MessageByTCP implements Serializable {
         this.descriptionTitle = descriptionTitle;
     }
     // Otherwise, if type=="UPDATE" the urls_queue will also be shared
-    public MessageByTCP(String type, BlockingQueue<String> urls_queue,HashMap<String, HashSet<String>> refereceURL,HashMap<String, HashSet<String>> indexURL, HashMap<String, HashSet<String>> descriptionTitle){
+    public MessageByTCP(String type, BlockingQueue<String> urls_queue,HashMap<String, HashSet<String>> refereceURL,HashMap<String, HashSet<String>> indexURL, HashMap<String, ArrayList<String>> descriptionTitle){
         this.type = type;
         this.urls_queue = urls_queue;
         this.refereceURL= refereceURL;
@@ -160,7 +160,7 @@ class MessageByTCP implements Serializable {
     public HashMap<String, HashSet<String>> getRefereceURL(){
         return this.refereceURL;
     }
-    public HashMap<String, HashSet<String>> getDescriptionTitle(){ return this.descriptionTitle; }
+    public HashMap<String, ArrayList<String>> getDescriptionTitle(){ return this.descriptionTitle; }
     //-----------------------------------------------
     @Override
     public String toString() {
@@ -222,7 +222,7 @@ class Connection extends Thread {
     private void updateDataBase(MessageByTCP object,boolean saveUsers){
         filesManager.saveHashSetsToDataBase("INDEX",mergeDataBases(filesManager.loadDataBase("INDEX"),object.indexURL));
         filesManager.saveHashSetsToDataBase("REFERENCE",mergeDataBases(filesManager.loadDataBase("REFERENCE"),object.refereceURL));
-        filesManager.saveHashSetsToDataBase("DESCRIPTION",mergeDataBases(filesManager.loadDataBase("DESCRIPTION"),object.descriptionTitle));
+        filesManager.saveHashSetsToDataBaseDescription("DESCRIPTION",mergeDataBasesDescriptions(filesManager.loadDataBaseDescriptions(),object.descriptionTitle));
         if (saveUsers)
             filesManager.saveUsersToDataBase(merge_users(filesManager.loadUsersFromDataBase(),object.users_list));
     }
@@ -235,6 +235,19 @@ class Connection extends Thread {
                 two.put((String) pair.getKey(),(HashSet<String>) pair.getValue());
             else {
                 two.get(pair.getKey()).addAll((HashSet<String>) pair.getValue());
+            }
+        }
+        return two;
+    }
+
+    private HashMap<String, ArrayList<String>> mergeDataBasesDescriptions(HashMap<String, ArrayList<String>> one,HashMap<String, ArrayList<String>> two){
+        Iterator it = one.entrySet().iterator();
+        while (it.hasNext()) {
+            Map.Entry pair = (Map.Entry)it.next();
+            if (two.get(pair.getKey())==null)
+                two.put((String) pair.getKey(),(ArrayList<String>) pair.getValue());
+            else {
+                two.get(pair.getKey()).addAll((ArrayList<String>) pair.getValue());
             }
         }
         return two;

@@ -7,7 +7,7 @@ import RMISERVER.*;
 class DatabaseHandler extends Thread {
     private HashMap<String, HashSet<String>> refereceURL = null;
     private HashMap<String, HashSet<String>> indexURL = null;
-    private HashMap<String, HashSet<String>> descriptionTitle = null;
+    private HashMap<String, ArrayList<String>> descriptionTitle = null;
     private ArrayList<User> users_list = null;
     private FilesNamesObject fileManager;
 
@@ -21,7 +21,7 @@ class DatabaseHandler extends Thread {
 
     // constructor for saving urls
     public DatabaseHandler(
-            HashMap<String, HashSet<String>> refereceURL, HashMap<String, HashSet<String>> indexURL, HashMap<String, HashSet<String>> descriptionTitle, FilesNamesObject fileManager) {
+            HashMap<String, HashSet<String>> refereceURL, HashMap<String, HashSet<String>> indexURL, HashMap<String, ArrayList<String>> descriptionTitle, FilesNamesObject fileManager) {
         super();
         this.setName("DatabaseHandler-" + this.getId());
         this.refereceURL = refereceURL;
@@ -35,7 +35,7 @@ class DatabaseHandler extends Thread {
         if (this.users_list == null) {
             this.fileManager.saveHashSetsToDataBase("INDEX", this.indexURL);
             this.fileManager.saveHashSetsToDataBase("REFERENCE", this.refereceURL);
-            this.fileManager.saveHashSetsToDataBase("DESCRIPTION", this.descriptionTitle);
+            this.fileManager.saveHashSetsToDataBaseDescription("DESCRIPTION", this.descriptionTitle);
         } else {
             this.fileManager.saveUsersToDataBase(this.users_list);
 
