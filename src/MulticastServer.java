@@ -1,5 +1,4 @@
 import java.io.IOException;
-import java.lang.reflect.Array;
 import java.net.*;
 import RMISERVER.*;
 import org.jsoup.Connection;
@@ -403,7 +402,7 @@ class HandleRequest extends Thread {
                     * */
                     users = filesManager.loadUsersFromDataBase();
                     for (int i = 0; i < users.size(); i++) {
-                        if (users.get(i).getUsername().equals(myDic.get("user"))) {
+                        if (users.get(i).getUsername().equals(myDic.get("user").replace("+"," "))) {
                             users.get(i).addSearchToHistory(returnString("word", myDic));
                             bd = new DatabaseHandler(users, filesManager);
                             bd.start();
@@ -953,7 +952,7 @@ class HandleRequest extends Thread {
             String description="NO DESCRIPTION AVAILABLE";
             try {
                 conn = (Connection) Jsoup.connect(inputLink);
-                conn.timeout(5000);
+                conn.timeout(10000);
                 doc = conn.get();
                 title = doc.title();
                 if (title.trim().equals("")){
@@ -978,7 +977,8 @@ class HandleRequest extends Thread {
             database_changes_and_references_to_index[1] = indexWords(text, inputLink, indexURL);
             database_changes_and_references_to_index[2] = indexDescriptionsAndTitles(description, title, inputLink, descriptionTitle);
 
-
+            System.out.println("------DESCRIPTION------");
+            System.out.println(database_changes_and_references_to_index[2]);
             System.out.println("ULR SAVED ---->" + url);
             DatabaseHandler handler_db = new DatabaseHandler(refereceURL, indexURL, descriptionTitle, filesManager);
             handler_db.start();
