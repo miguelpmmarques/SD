@@ -7,8 +7,9 @@ import java.util.*;
 
 public interface ServerLibrary extends Remote {
     public String connected(ClientLibrary newUser) throws RemoteException;
-    public HashMap<String,String> userRegistration(User newUser) throws RemoteException, UnknownHostException;
-    public HashMap<String,String> userLogin(User newUser) throws RemoteException, InterruptedException;
+    public HashMap<String,String> userRegistration(User newUser, boolean isFacebook) throws RemoteException, UnknownHostException;
+    public HashMap<String, String> setFbAssociation(User thisUser) throws RemoteException, UnknownHostException;
+    public HashMap<String,String> userLogin(User newUser, boolean isFacebook) throws RemoteException, InterruptedException;
     public HashMap<String,String> searchWords(String[] words) throws RemoteException;
     public int checkMe() throws RemoteException;
     public HashMap<String,String> sendSystemInfo() throws RemoteException;

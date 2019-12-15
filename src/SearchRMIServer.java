@@ -39,6 +39,7 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
     private synchronized String sendToMulticast(String message,int idPack) {
         int MAXNUMBEROFTIMEOUTS = 0;
         message = "idRMI|"+idPack+";"+message;
+    System.out.println("MESSAGE"+ message);
         byte[] buffer = message.getBytes();
         int id =-1;
         String messageFromMulticast="";
@@ -105,10 +106,18 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
     /*
      * Self-explanatory
      * */
-    public HashMap<String,String> userRegistration(User newUser) throws RemoteException, UnknownHostException { // DONE
-        String requestToMulticast =  "type|requestUSERRegist;" +
-                "user|"+newUser.getUsername()+";" +
-                "pass|"+newUser.getPassword()+"";
+    public HashMap<String,String> userRegistration(User newUser, boolean isFacebook) throws RemoteException, UnknownHostException { // DONE
+        String requestToMulticast = "";
+        System.out.println("GHERE MOFO");
+        if(isFacebook){
+            requestToMulticast =  "type|requestUSERFbRegist;" +
+                    "userFb|"+newUser.getUsernameFb()+";" +
+                    "passFb|"+newUser.getPasswordFb()+"";
+        }else{
+            requestToMulticast =  "type|requestUSERRegist;" +
+                    "user|"+newUser.getUsername()+";" +
+                    "pass|"+newUser.getPassword()+"";
+        }
         // ifs para verificar
         System.out.println("[USER REGISTERED] - "+requestToMulticast);
         synchronized (listLogedUsers){
@@ -120,8 +129,13 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
     /*
      * Self-explanatory
      * */
-    public HashMap<String,String> userLogin(User newUser) { // DONE
-        String requestToMulticast =  "type|requestUSERLogin;" + "user|"+newUser.getUsername()+";" + "pass|"+newUser.getPassword()+"";
+    public HashMap<String,String> userLogin(User newUser, boolean isFacebook) {// DONE
+        String requestToMulticast;
+        if (isFacebook){
+            requestToMulticast =  "type|requestUSERLogin;" + "user|"+newUser.getUsernameFb()+";" + "pass|"+newUser.getPasswordFb()+"";
+        }else{
+            requestToMulticast =  "type|requestUSERLogin;" + "user|"+newUser.getUsername()+";" + "pass|"+newUser.getPassword()+"";
+        }
         System.out.println("[USER LOG IN] - "+requestToMulticast);
         String answer = sendToMulticast(requestToMulticast,this.numberRequest.incrementAndGet());
         char aux = answer.charAt(answer.length()-1);
@@ -145,6 +159,12 @@ public class SearchRMIServer extends UnicastRemoteObject implements ServerLibrar
      * */
     public HashMap<String,String> getHistory(User thisUser){
         String requestToMulticast ="type|requestUSERhistory;" + "user|"+thisUser.getUsername();
+        String answer = sendToMulticast(requestToMulticast,this.numberRequest.incrementAndGet());
+        return protocolReaderRMISide(answer);
+    }
+
+    public HashMap<String,String> setFbAssociation(User thisUser){
+        String requestToMulticast ="type|requestUSERFbAssociation;" + "user|"+thisUser.getUsername()+";userFb|"+thisUser.getUsernameFb()+";passFb|"+thisUser.getPasswordFb();
         String answer = sendToMulticast(requestToMulticast,this.numberRequest.incrementAndGet());
         return protocolReaderRMISide(answer);
     }
