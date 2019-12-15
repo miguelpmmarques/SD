@@ -405,7 +405,7 @@ class HandleRequest extends Thread {
            * */
           users = filesManager.loadUsersFromDataBase();
           for (int i = 0; i < users.size(); i++) {
-            if (users.get(i).getUsername().equals(myDic.get("user").replace("+", " "))) {
+            if (users.get(i).getUsername().equals(myDic.get("user").replace("+", " ")) || users.get(i).getUsernameFb().equals(myDic.get("user").replace("+", " ")) ) {
               users.get(i).addSearchToHistory(returnString("word", myDic));
               bd = new DatabaseHandler(users, filesManager);
               bd.start();
@@ -492,7 +492,7 @@ class HandleRequest extends Thread {
           ArrayList<String> myUserHistory;
           users = filesManager.loadUsersFromDataBase();
           for (int i = 0; i < users.size(); i++) {
-            if (users.get(i).getUsername().equals((String) myDic.get("user"))) {
+            if (users.get(i).getUsername().equals((String) myDic.get("user"))|| users.get(i).getUsernameFb().equals((String) myDic.get("user"))) {
               myUser = users.get(i);
               myUserHistory = myUser.getSearchToHistory();
               message2send = "word_count|" + myUserHistory.size() + ";";
@@ -929,7 +929,7 @@ class HandleRequest extends Thread {
           message2Send += "important_pages_count|" + top10ULR.size() + ";";
           ls = 1;
           for (String elem : top10ULR) {
-            message2Send += "important_pages_" + ls + "|" + elem + ";";
+            message2Send += "important_pages_" + ls + "|" +ls +"ª - " + elem + ";";
             ls++;
           }
           users = filesManager.loadUsersFromDataBase();
@@ -954,7 +954,7 @@ class HandleRequest extends Thread {
           ls = 1;
           for (Map.Entry pair : topSearches.entrySet()) {
             System.out.println(pair.getKey());
-            message2Send += "top_search_" + ls + "|" + pair.getKey() + ";";
+            message2Send += "top_search_" + ls + "|"+ls +"ª - " + pair.getKey() + ";";
             if (ls == 10) {
               break;
             }
